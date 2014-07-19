@@ -1,4 +1,4 @@
-;;; identica-mode.el --- Major mode API client for status.net open microblogging
+;;; gnu-social-mode.el --- Major mode API client for GNU Social mode
 
 ;; This file is part of gnu-social-mode
 ;;
@@ -15,14 +15,14 @@
 ;; You should have received a copy of the GNU General Public License
 ;; along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-;; Copyright (C) 2008-2011 Gabriel Saldana
-;; Copyright (C) 2009 Bradley M. Kuhn
 ;; Copyright (C) 2014 Sergio Durigan Junior
+;; Copyright (C) 2008-2013 Gabriel Saldana
+;; Copyright (C) 2009 Bradley M. Kuhn
 
 ;; Author: Gabriel Saldana <gsaldana@gmail.com>
 ;;         and Sergio Durigan Junior <sergiodj (at) sergiodj (dot) net>
-;; Keywords: identica web
-;; URL: http://blog.gabrielsaldana.org/identica-mode-for-emacs/
+;; Keywords: gnu-social web
+;; URL: http://blog.gabrielsaldana.org/gnu-social-mode-for-emacs/
 ;; Contributors:
 ;;     Jason McBrayer <jmcbray@carcosa.net> (minor updates for working under Emacs 23)
 ;;     Alex Schröder <kensanata@gmail.com> (mode map patches)
@@ -42,10 +42,10 @@
 
 ;;; Commentary:
 
-;; Identica Mode is a major mode to check friends timeline, and update your
+;; GNU Social Mode is a major mode to check friends timeline, and update your
 ;; status on Emacs.
 
-;; identica-mode.el is a major mode for Identica.  Based on the twittering mode
+;; gnu-social-mode.el is a major mode for GNU Social.  Based on the twittering mode
 ;; version 0.6 by Y.  Hayamizu and Tsuyoshi CHO found at
 ;; <http://hayamin.com/wiliki.cgi?twittering-mode-en&l=en>
 
@@ -60,14 +60,14 @@
 
 ;;; Install:
 
-;; You can use M-x customize-group identica-mode to setup all settings or simply
+;; You can use M-x customize-group gnu-social-mode to setup all settings or simply
 ;; add the following to your .emacs or your prefered customizations file
 
-;; (require 'identica-mode)
-;; (setq identica-username "yourusername")
+;; (require 'gnu-social-mode)
+;; (setq gnu-social-username "yourusername")
 
 ;; If you want to use simple authentication add your password
-;; (setq identica-password "yourpassword")
+;; (setq gnu-social-password "yourpassword")
 
 ;; It is recommended to create a file ~/.authinfo with your login credentials
 ;; instead of storing your password in plain text, the file should have the
@@ -75,27 +75,20 @@
 
 ;; machine servername login yourusername password yourpassword
 
-;; Replace servername with your server (if Identica server use identi.ca)
-;; yourusername and yourpassword with your information. If you setup your
-;; authinfo file, you don't need to set identica-password variable anywhere
+;; Replace servername with your server, yourusername and yourpassword
+;; with your information. If you setup your authinfo file, you don't
+;; need to set gnu-social-password variable anywhere
 
 ;; If you want to use OAuth authentication add the following
-;; (setq identica-auth-mode "oauth")
+;; (setq gnu-social-auth-mode "oauth")
 
-;; If you want to post from the minibufer without having identica buffer active, add the following global keybinding.
+;; If you want to post from the minibufer without having gnu-social buffer active, add the following global keybinding.
 ;; Add this to send status updates
-;; (global-set-key "\C-cip" 'identica-update-status-interactive)
+;; (global-set-key "\C-cip" 'gnu-social-update-status-interactive)
 ;; Add this to send direct messages
-;; (global-set-key "\C-cid" 'identica-direct-message-interactive)
+;; (global-set-key "\C-cid" 'gnu-social-direct-message-interactive)
 
-;; If you want to connect to a custom statusnet server add this and change
-;; identi.ca with your server's doman name.
-
-;; (setq statusnet-server "identi.ca")
-
-;; Start using with M-x identica
-
-;; Follow me on identica: http://identi.ca/gabrielsaldana
+;; Start using with M-x gnu-social
 
 ;;; Code:
 
@@ -107,39 +100,40 @@
 (require 'json)
 (require 'image)
 
-(defconst identica-mode-version "1.3.1")
+(defconst gnu-social-mode-version "1.3.1")
 
 ;;url-basepath fix for emacs22
 (unless (fboundp 'url-basepath)
   (defalias 'url-basepath 'url-file-directory))
 
 ;;workaround for url-unhex-string bug that was fixed in emacs 23.3
-(defvar identica-unhex-broken nil
+(defvar gnu-social-unhex-broken nil
   "Predicate indicating broken-ness of `url-unhex-string'.
 
 If non-nil, indicates that `url-unhex-string' is broken and
 must be worked around when using oauth.")
 
-(defgroup identica-mode nil
-  "Identica Mode for microblogging"
+(defgroup gnu-social-mode nil
+  "GNU Social Mode for microblogging on Emacs"
   :tag "Microblogging"
-  :link '(url-link http://blog.gabrielsaldana.org/identica-mode-for-emacs/)
+;;; TODO: put my link here
+;  :link '(url-link http://blog.gabrielsaldana.org/gnu-social-mode-for-emacs/)
   :group 'applications )
 
-(defun identica-mode-version ()
-  "Display a message for identica-mode version."
+(defun gnu-social-mode-version ()
+  "Display a message for gnu-social-mode version."
   (interactive)
   (let ((version-string
-         (format "identica-mode-v%s" identica-mode-version)))
+         (format "gnu-social-mode-v%s" gnu-social-mode-version)))
     (if (interactive-p)
         (message "%s" version-string)
       version-string)))
 
-(defvar identica-mode-map (make-sparse-keymap "Identi.ca"))
-(defvar menu-bar-identica-mode-menu nil)
-(defvar identica-timer nil "Timer object for timeline refreshing will be stored here.  DO NOT SET VALUE MANUALLY.")
+(defvar gnu-social-mode-map (make-sparse-keymap "GNU-Social"))
+(defvar menu-bar-gnu-social-mode-menu nil)
+(defvar gnu-social-timer nil "Timer object for timeline refreshing will be stored here.  DO NOT SET VALUE MANUALLY.")
 
-(defvar identica-urlshortening-services-map
+(defvar gnu-social-urlshortening-services-map
   '((tinyurl . "http://tinyurl.com/api-create.php?url=")
     (toly    . "http://to.ly/api.php?longurl=")
     (google . "http://ggl-shortener.appspot.com/?url=")
@@ -148,156 +142,151 @@ must be worked around when using oauth.")
     (isgd . "http://is.gd/create.php?format=simple&url="))
   "Alist of tinyfy services.")
 
-(defvar identica-new-dents-count 0
-  "Number of new tweets when `identica-new-dents-hook' is run.")
+(defvar gnu-social-new-dents-count 0
+  "Number of new dents when `gnu-social-new-dents-hook' is run.")
 
-(defvar identica-new-dents-hook nil
-  "Hook run when new twits are received.
+(defvar gnu-social-new-dents-hook nil
+  "Hook run when new dents are received.
 
-You can read `identica-new-dents-count' to get the number of new
-tweets received when this hook is run.")
+You can read `gnu-social-new-dents-count' to get the number of new
+dents received when this hook is run.")
 
-(defvar identica-display-max-dents nil
+(defvar gnu-social-display-max-dents nil
   "How many dents to keep on the displayed timeline.
 
 If non-nil, dents over this amount will bre removed.")
 
 ;; Menu
-(unless menu-bar-identica-mode-menu
+(unless menu-bar-gnu-social-mode-menu
   (easy-menu-define
-    menu-bar-identica-mode-menu identica-mode-map ""
-    '("Identi.ca"
-      ["Send an update" identica-update-status-interactive t]
-      ["Send a direct message" identica-direct-message-interactive t]
-      ["Re-dent someone's update" identica-redent t]
-      ["Repeat someone's update" identica-repeat t]
-      ["Add as favorite" identica-favorite t]
-      ["Follow user" identica-follow]
-      ["Unfollow user" identica-unfollow]
+    menu-bar-gnu-social-mode-menu gnu-social-mode-map ""
+    '("GNU-Social"
+      ["Send an update" gnu-social-update-status-interactive t]
+      ["Send a direct message" gnu-social-direct-message-interactive t]
+      ["Re-dent someone's update" gnu-social-redent t]
+      ["Repeat someone's update" gnu-social-repeat t]
+      ["Add as favorite" gnu-social-favorite t]
+      ["Follow user" gnu-social-follow]
+      ["Unfollow user" gnu-social-unfollow]
       ["--" nil nil]
-      ["Friends timeline" identica-friends-timeline t]
-      ["Public timeline" identica-public-timeline t]
-      ["Replies timeline" identica-replies-timeline t]
-      ["User timeline" identica-user-timeline t]
-      ["Tag timeline" identica-tag-timeline t]
+      ["Friends timeline" gnu-social-friends-timeline t]
+      ["Public timeline" gnu-social-public-timeline t]
+      ["Replies timeline" gnu-social-replies-timeline t]
+      ["User timeline" gnu-social-user-timeline t]
+      ["Tag timeline" gnu-social-tag-timeline t]
       ["--" nil nil]
-      ;; ["Group timeline" identica-group-timeline t]
-      ;; ["Join to this group" identica-group-join t]
-      ["Leave this group" identica-group-leave t]
+      ;; ["Group timeline" gnu-social-group-timeline t]
+      ;; ["Join to this group" gnu-social-group-join t]
+      ["Leave this group" gnu-social-group-leave t]
       )))
 
-(defcustom identica-idle-time 20
+(defcustom gnu-social-idle-time 20
   "Idle time."
   :type 'integer
-  :group 'identica-mode)
+  :group 'gnu-social-mode)
 
-(defcustom identica-timer-interval 90
+(defcustom gnu-social-timer-interval 90
   "Timer interval to refresh the timeline."
   :type 'integer
-  :group 'identica-mode)
+  :group 'gnu-social-mode)
 
-(defcustom identica-username nil
-  "Your identi.ca username.  If nil, you will be prompted."
+(defcustom gnu-social-username nil
+  "Your GNU Social username.  If nil, you will be prompted."
   :type '(choice (const :tag "Ask" nil) (string))
-  :group 'identica-mode)
+  :group 'gnu-social-mode)
 
-(defcustom identica-password nil
-  "Your identi.ca password.  If nil, you will be prompted."
+(defcustom gnu-social-password nil
+  "Your GNU Social password.  If nil, you will be prompted."
   :type '(choice (const :tag "Ask" nil) (string))
-  :group 'identica-mode)
+  :group 'gnu-social-mode)
 
-(defcustom identica-auth-mode "password"
+(defcustom gnu-social-auth-mode "password"
   "Authorization mode used, options are password and oauth."
   :type 'string
-  :group 'identica-mode)
+  :group 'gnu-social-mode)
 
-(defun identica-enable-oauth ()
-  "Enables oauth for identica-mode."
+(defun gnu-social-enable-oauth ()
+  "Enables oauth for gnu-social-mode."
   (interactive)
   (require 'oauth)
                                         ;Test if we're running on an emacs version with broken unhex and apply workaround.
   (unless (eq (url-unhex-string (url-hexify-string "²")) "²")
-    (setq identica-unhex-broken t)
+    (setq gnu-social-unhex-broken t)
     (require 'w3m))
-  (setq identica-auth-mode "oauth"))
+  (setq gnu-social-auth-mode "oauth"))
 
-(defvar identica-mode-oauth-consumer-key
-  "53e8e7bf7d1be8e58ef1024b31478d2b")
+(defvar gnu-social-mode-oauth-consumer-key nil)
 
-(defvar identica-mode-oauth-consumer-secret
-  "1ab0876f14bd82c4eb450f720a0e84ae")
+(defvar gnu-social-mode-oauth-consumer-secret nil)
 
-(defcustom statusnet-server "identi.ca"
-  "Statusnet instance url."
+(defcustom gnu-social-server nil
+  "GNU Social instance URL."
+  :type '(choice (const :tag "Ask" nil) (string))
+  :group 'gnu-social-mode)
+
+(defcustom gnu-social-request-url nil
+  "GNU Social oauth request_token url."
   :type 'string
-  :group 'identica-mode)
+  :group 'gnu-social-mode)
 
-(defcustom statusnet-request-url
-  "https://identi.ca/api/oauth/request_token"
-  "Statusnet oauth request_token url."
+(defcustom gnu-social-access-url nil
+  "GNU Social oauth access_token url."
   :type 'string
-  :group 'identica-mode)
+  :group 'gnu-social-mode)
 
-(defcustom statusnet-access-url
-  "https://identi.ca/api/oauth/access_token"
-  "Statusnet oauth access_token url."
+(defcustom gnu-social-authorize-url nil
+  "GNU Social authorization url."
   :type 'string
-  :group 'identica-mode)
+  :group 'gnu-social-mode)
 
-(defcustom statusnet-authorize-url
-  "https://identi.ca/api/oauth/authorize"
-  "Statusnet authorization url."
-  :type 'string
-  :group 'identica-mode)
-
-(defcustom statusnet-server-textlimit 140
+(defcustom gnu-social-server-textlimit 140
   "Number of characters allowed in a status."
   :type 'integer
-  :group 'identica-mode)
+  :group 'gnu-social-mode)
 
 (defvar oauth-access-token nil)
 
-(defcustom statusnet-port 80
-  "Port on which StatusNet instance listens."
+(defcustom gnu-social-port 80
+  "Port on which GNU Social instance listens."
   :type 'integer
-  :group 'identica-mode)
+  :group 'gnu-social-mode)
 
-(defcustom identica-default-timeline "friends_timeline"
+(defcustom gnu-social-default-timeline "friends_timeline"
   "Default timeline to retrieve."
   :type 'string
   :options '("friends_timeline" "public_timeline" "replies")
-  :group 'identica-mode)
+  :group 'gnu-social-mode)
 
-(defcustom identica-statuses-count 20
+(defcustom gnu-social-statuses-count 20
   "Default number of statuses to retrieve."
   :type 'integer
-  :group 'identica-mode)
+  :group 'gnu-social-mode)
 
-(defcustom identica-display-success-messages nil
+(defcustom gnu-social-display-success-messages nil
   "Display messages when the timeline is successfully retrieved."
   :type 'boolean
-  :group 'identica-mode)
+  :group 'gnu-social-mode)
 
-(defcustom identica-oldest-first nil
+(defcustom gnu-social-oldest-first nil
   "If t, display older messages before newer ones."
   :type 'boolean
-  :group 'identica-mode)
+  :group 'gnu-social-mode)
 
-(defcustom identica-update-status-edit-confirm-cancellation nil
+(defcustom gnu-social-update-status-edit-confirm-cancellation nil
   "If t, ask user if they are sure when aborting editing of an
-identica status update when using an edit-buffer"
+gnu-social status update when using an edit-buffer"
   :type 'boolean
-  :group 'identica-mode)
+  :group 'gnu-social-mode)
 
-(defcustom identica-soft-wrap-status t
+(defcustom gnu-social-soft-wrap-status t
   "If non-nil, don't fill status messages in the timeline as
 paragraphs. Instead, use visual-line-mode or longlines-mode if
   available to wrap messages.  This may work better for narrow
   timeline windows."
   :type 'boolean
-  :group 'identica-mode)
+  :group 'gnu-social-mode)
 
-(defcustom identica-update-status-method 'minibuffer
+(defcustom gnu-social-update-status-method 'minibuffer
   "Method for performaing status updates.
 
 The available choices are:
@@ -306,37 +295,37 @@ The available choices are:
   'edit-buffer - edit the status update in an independent buffer."
   :type '(choice (const :tag "Edit status in minibuffer" minibuffer)
                  (const :tag "Edit status in independent buffer" edit-buffer))
-  :group 'identica-mode)
+  :group 'gnu-social-mode)
 
-(defcustom identica-http-get-timeout 10
+(defcustom gnu-social-http-get-timeout 10
   "Controls how long to wait for a response from the server."
   :type 'integer
-  :group 'identica-mode)
+  :group 'gnu-social-mode)
 
 ;; Initialize with default timeline
-(defvar identica-method identica-default-timeline)
-(defvar identica-method-class "statuses")
-(defvar identica-remote-server nil)
+(defvar gnu-social-method gnu-social-default-timeline)
+(defvar gnu-social-method-class "statuses")
+(defvar gnu-social-remote-server nil)
 
-(defvar identica-scroll-mode nil)
-(make-variable-buffer-local 'identica-scroll-mode)
+(defvar gnu-social-scroll-mode nil)
+(make-variable-buffer-local 'gnu-social-scroll-mode)
 
-(defvar identica-source "identica-mode")
+(defvar gnu-social-source "gnu-social-mode")
 
-(defcustom identica-redent-format "♻"
+(defcustom gnu-social-redent-format "♻"
   "The format/symbol to represent redents."
   :type 'string
-  :group 'identica-mode)
+  :group 'gnu-social-mode)
 
-(defcustom identica-blacklist '()
+(defcustom gnu-social-blacklist '()
   "List of regexes used to filter statuses, evaluated after status formatting is applied."
   :type 'string
-  :group 'identica-mode)
+  :group 'gnu-social-mode)
 
-(defcustom identica-status-format "%i %s,  %@:\n  %h%t // from %f%L%r\n\n"
+(defcustom gnu-social-status-format "%i %s,  %@:\n  %h%t // from %f%L%r\n\n"
   "The format used to display the status updates."
   :type 'string
-  :group 'identica-mode)
+  :group 'gnu-social-mode)
 ;; %s - screen_name
 ;; %S - name
 ;; %i - profile_image
@@ -356,23 +345,23 @@ The available choices are:
 ;; %f - source
 ;; %# - id
 
-(defcustom identica-urlshortening-service 'ur1ca
+(defcustom gnu-social-urlshortening-service 'ur1ca
   "The service to use for URL shortening.
 Values understood are ur1ca, tighturl, tinyurl, toly, google and isgd."
   :type 'symbol
-  :group 'identica-mode)
+  :group 'gnu-social-mode)
 
-(defvar identica-buffer "*identica*")
-(defun identica-buffer (&optional method)
-  "Create a buffer for use by identica-mode.
+(defvar gnu-social-buffer "*gnu-social*")
+(defun gnu-social-buffer (&optional method)
+  "Create a buffer for use by gnu-social-mode.
 Initialize the global method with the default, or with METHOD, if present."
   (unless method
     (setq method "friends_timeline"))
-  (get-buffer-create identica-buffer))
+  (get-buffer-create gnu-social-buffer))
 
-(defstruct (statusnet-oauth-data
-            (:conc-name sn-oauth-))
-  "The oauth configuration associated with a statusnet account."
+(defstruct (gnu-social-oauth-data
+            (:conc-name gn-oauth-))
+  "The oauth configuration associated with a GNU Social account."
   consumer-key ; string
   consumer-secret ; string
   request-url ; string
@@ -381,8 +370,8 @@ Initialize the global method with the default, or with METHOD, if present."
   access-token ; string
   )
 
-(defstruct (statusnet-account
-            (:conc-name sn-account-))
+(defstruct (gnu-social-account
+            (:conc-name gn-account-))
   "Container for account information."
   server ; string
   port ; integer
@@ -390,283 +379,293 @@ Initialize the global method with the default, or with METHOD, if present."
   auth-mode ; string, either "password" or "oauth"
   password ; string
   textlimit ; integer
-  oauth-data ; statusnet-account-oauth-data
+  oauth-data ; gnu-social-account-oauth-data
   last-timeline-retrieved ; string
   )
 
-(defvar statusnet-accounts nil
-  "A list of login credentials for statusnet instances.")
+(defvar gnu-social-accounts nil
+  "A list of login credentials for GNU Social instances.")
 
-(defvar sn-current-account nil
-  "A pointer to the statusnet account being processed.")
+(defvar gn-current-account nil
+  "A pointer to the GNU Social account being processed.")
 
-(defvar identica-http-buffer nil
+(defvar gnu-social-http-buffer nil
   "Pointer to the current http response buffer.")
 
-(defvar identica-timeline-data nil)
-(defvar identica-timeline-last-update nil)
-(defvar identica-highlighted-entries nil
+(defvar gnu-social-timeline-data nil)
+(defvar gnu-social-timeline-last-update nil)
+(defvar gnu-social-highlighted-entries nil
   "List of entry ids selected for highlighting.")
 
-(defcustom identica-enable-highlighting nil
+(defcustom gnu-social-enable-highlighting nil
   "If non-nil, set the background of every selected entry to the background
-of identica-highlight-face."
+of gnu-social-highlight-face."
   :type 'boolean
-  :group 'identica-mode)
+  :group 'gnu-social-mode)
 
-(defcustom identica-enable-striping nil
+(defcustom gnu-social-enable-striping nil
   "If non-nil, set the background of every second entry to the background
-of identica-stripe-face."
+of gnu-social-stripe-face."
   :type 'boolean
-  :group 'identica-mode)
+  :group 'gnu-social-mode)
 
-(defvar identica-username-face 'identica-username-face)
-(defvar identica-uri-face 'identica-uri-face)
-(defvar identica-reply-face 'identica-reply-face)
-(defvar identica-stripe-face 'identica-stripe-face)
-(defvar identica-highlight-face 'identica-highlight-face)
+(defvar gnu-social-username-face 'gnu-social-username-face)
+(defvar gnu-social-uri-face 'gnu-social-uri-face)
+(defvar gnu-social-reply-face 'gnu-social-reply-face)
+(defvar gnu-social-stripe-face 'gnu-social-stripe-face)
+(defvar gnu-social-highlight-face 'gnu-social-highlight-face)
 
-(defcustom identica-reply-bg-color "DarkSlateGray"
+(defcustom gnu-social-reply-bg-color "DarkSlateGray"
   "The background color on which replies are displayed."
   :type 'string
-  :group 'identica-mode)
+  :group 'gnu-social-mode)
 
-(defcustom identica-stripe-bg-color "SlateGray"
+(defcustom gnu-social-stripe-bg-color "SlateGray"
   "The background color on which striped entries are displayed."
   :type 'string
-  :group 'identica-mode)
+  :group 'gnu-social-mode)
 
-(defcustom identica-highlight-bg-color "DarkSlateGray"
+(defcustom gnu-social-highlight-bg-color "DarkSlateGray"
   "The background color on which highlighted entries are displayed."
   :type 'string
-  :group 'identica-mode)
+  :group 'gnu-social-mode)
 
 ;;; Proxy
-(defvar identica-proxy-use nil)
-(defvar identica-proxy-server nil)
-(defvar identica-proxy-port 8080)
-(defvar identica-proxy-user nil)
-(defvar identica-proxy-password nil)
+(defvar gnu-social-proxy-use nil)
+(defvar gnu-social-proxy-server nil)
+(defvar gnu-social-proxy-port 8080)
+(defvar gnu-social-proxy-user nil)
+(defvar gnu-social-proxy-password nil)
 
-(defun identica-toggle-proxy ()
-  "Toggle whether identica-mode uses a proxy."
+(defun gnu-social-toggle-proxy ()
+  "Toggle whether gnu-social-mode uses a proxy."
   (interactive)
-  (setq identica-proxy-use
-        (not identica-proxy-use))
+  (setq gnu-social-proxy-use
+        (not gnu-social-proxy-use))
   (message "%s %s"
            "Use Proxy:"
-           (if identica-proxy-use
+           (if gnu-social-proxy-use
                "on" "off")))
 
-(defun identica-user-agent-default-function ()
-  "Identica mode default User-Agent function."
+(defun gnu-social-user-agent-default-function ()
+  "GNU Social mode default User-Agent function."
   (concat "Emacs/"
           (int-to-string emacs-major-version) "." (int-to-string
                                                    emacs-minor-version)
           " "
-          "Identica-mode/"
-          identica-mode-version))
+          "GNU-Social-mode/"
+          gnu-social-mode-version))
 
-(defvar identica-user-agent-function 'identica-user-agent-default-function)
+(defvar gnu-social-user-agent-function 'gnu-social-user-agent-default-function)
 
-(defun identica-user-agent ()
+(defun gnu-social-user-agent ()
   "Return User-Agent header string."
-  (funcall identica-user-agent-function))
+  (funcall gnu-social-user-agent-function))
 
 ;;; to show image files
 
-(defvar identica-tmp-dir
-  (expand-file-name (concat "identicamode-images-" (user-login-name))
+(defvar gnu-social-tmp-dir
+  (expand-file-name (concat "gnu-socialmode-images-" (user-login-name))
                     temporary-file-directory))
 
-(defvar identica-icon-mode nil "You MUST NOT CHANGE this variable directory.  You should change through function'identica-icon-mode'.")
-(make-variable-buffer-local 'identica-icon-mode)
-(defun identica-icon-mode (&optional arg)
+(defvar gnu-social-icon-mode nil "You MUST NOT CHANGE this variable directory.  You should change through function'gnu-social-icon-mode'.")
+(make-variable-buffer-local 'gnu-social-icon-mode)
+(defun gnu-social-icon-mode (&optional arg)
   (interactive)
-  (setq identica-icon-mode
-        (if identica-icon-mode
+  (setq gnu-social-icon-mode
+        (if gnu-social-icon-mode
             (if (null arg)
                 nil
               (> (prefix-numeric-value arg) 0))
           (when (or (null arg)
                     (and arg (> (prefix-numeric-value arg) 0)))
-            (when (file-writable-p identica-tmp-dir)
+            (when (file-writable-p gnu-social-tmp-dir)
               (progn
-                (if (not (file-directory-p identica-tmp-dir))
-                    (make-directory identica-tmp-dir))
+                (if (not (file-directory-p gnu-social-tmp-dir))
+                    (make-directory gnu-social-tmp-dir))
                 t)))))
-  (identica-current-timeline))
+  (gnu-social-current-timeline))
 
-(defun identica-scroll-mode (&optional arg)
+(defun gnu-social-scroll-mode (&optional arg)
   (interactive)
-  (setq identica-scroll-mode
+  (setq gnu-social-scroll-mode
         (if (null arg)
-            (not identica-scroll-mode)
+            (not gnu-social-scroll-mode)
           (> (prefix-numeric-value arg) 0))))
 
-(defvar identica-image-stack nil)
+(defvar gnu-social-image-stack nil)
 
-(defun identica-image-type (file-name)
+(defun gnu-social-image-type (file-name)
   (cond
    ((string-match "\\.jpe?g" file-name) 'jpeg)
    ((string-match "\\.png" file-name) 'png)
    ((string-match "\\.gif" file-name) 'gif)
    (t nil)))
 
-(defun identica-setftime (fmt string uni)
+(defun gnu-social-setftime (fmt string uni)
   (format-time-string fmt ; like "%Y-%m-%d %H:%M:%S"
                       (apply 'encode-time (parse-time-string string))
                       uni))
-(defun identica-local-strftime (fmt string)
-  (identica-setftime fmt string nil))
-(defun identica-global-strftime (fmt string)
-  (identica-setftime fmt string t))
+(defun gnu-social-local-strftime (fmt string)
+  (gnu-social-setftime fmt string nil))
+(defun gnu-social-global-strftime (fmt string)
+  (gnu-social-setftime fmt string t))
 
-(defvar identica-debug-mode nil)
-(defvar identica-debug-buffer "*identica-debug*")
-(defun identica-debug-buffer ()
-  (get-buffer-create identica-debug-buffer))
+(defvar gnu-social-debug-mode nil)
+(defvar gnu-social-debug-buffer "*gnu-social-debug*")
+(defun gnu-social-debug-buffer ()
+  (get-buffer-create gnu-social-debug-buffer))
 (defmacro debug-print (obj)
   (let ((obsym (gensym)))
     `(let ((,obsym ,obj))
-       (if identica-debug-mode
-           (with-current-buffer (identica-debug-buffer)
+       (if gnu-social-debug-mode
+           (with-current-buffer (gnu-social-debug-buffer)
              (insert (prin1-to-string ,obsym))
              (newline)
              ,obsym)
          ,obsym))))
 
-(defun identica-debug-mode ()
+(defun gnu-social-debug-mode ()
   (interactive)
-  (setq identica-debug-mode
-        (not identica-debug-mode))
-  (message (if identica-debug-mode "debug mode:on" "debug mode:off")))
+  (setq gnu-social-debug-mode
+        (not gnu-social-debug-mode))
+  (message (if gnu-social-debug-mode "debug mode:on" "debug mode:off")))
 
-(defun identica-delete-notice ()
+(defun gnu-social-delete-notice ()
   (interactive)
   (let ((id (get-text-property (point) 'id))
         (usern (get-text-property (point) 'username)))
-    (if (string= usern (sn-account-username sn-current-account))
+    (if (string= usern (gn-account-username gn-current-account))
         (when (y-or-n-p "Delete this notice? ")
-          (identica-http-post "statuses/destroy" (number-to-string id))
-          (identica-get-timeline))
+          (gnu-social-http-post "statuses/destroy" (number-to-string id))
+          (gnu-social-get-timeline))
       (message "Can't delete a notice that isn't yours"))))
 
-(if identica-mode-map
-    (let ((km identica-mode-map))
-      (define-key km "\C-c\C-f" 'identica-friends-timeline)
-      ;;      (define-key km "\C-c\C-i" 'identica-direct-messages-timeline)
-      (define-key km "\C-c\C-r" 'identica-replies-timeline)
-      (define-key km "\C-c\C-a" 'identica-public-timeline)
-      (define-key km "\C-c\C-g" 'identica-group-timeline)
-      ;;      (define-ley km "\C-c\C-j" 'identica-group-join)
-      ;;      (define-ley km "\C-c\C-l" 'identica-group-leave)
-      (define-key km "\C-c\C-t" 'identica-tag-timeline)
-      (define-key km "\C-c\C-k" 'identica-stop)
-      (define-key km "\C-c\C-u" 'identica-user-timeline)
-      (define-key km "\C-c\C-c" 'identica-conversation-timeline)
-      (define-key km "\C-c\C-o" 'identica-remote-user-timeline)
-      (define-key km "\C-c\C-s" 'identica-update-status-interactive)
-      (define-key km "\C-c\C-d" 'identica-direct-message-interactive)
-      (define-key km "\C-c\C-m" 'identica-redent)
-      (define-key km "\C-c\C-h" 'identica-toggle-highlight)
-      (define-key km "r" 'identica-repeat)
-      (define-key km "F" 'identica-favorite)
-      (define-key km "\C-c\C-e" 'identica-erase-old-statuses)
-      (define-key km "\C-m" 'identica-enter)
-      (define-key km "R" 'identica-reply-to-user)
-      (define-key km "A" 'identica-reply-to-all)
-      (define-key km "\t" 'identica-next-link)
-      (define-key km [backtab] 'identica-prev-link)
-      (define-key km [mouse-1] 'identica-click)
-      (define-key km "\C-c\C-v" 'identica-view-user-page)
+(if gnu-social-mode-map
+    (let ((km gnu-social-mode-map))
+      (define-key km "\C-c\C-f" 'gnu-social-friends-timeline)
+      ;;      (define-key km "\C-c\C-i" 'gnu-social-direct-messages-timeline)
+      (define-key km "\C-c\C-r" 'gnu-social-replies-timeline)
+      (define-key km "\C-c\C-a" 'gnu-social-public-timeline)
+      (define-key km "\C-c\C-g" 'gnu-social-group-timeline)
+      ;;      (define-ley km "\C-c\C-j" 'gnu-social-group-join)
+      ;;      (define-ley km "\C-c\C-l" 'gnu-social-group-leave)
+      (define-key km "\C-c\C-t" 'gnu-social-tag-timeline)
+      (define-key km "\C-c\C-k" 'gnu-social-stop)
+      (define-key km "\C-c\C-u" 'gnu-social-user-timeline)
+      (define-key km "\C-c\C-c" 'gnu-social-conversation-timeline)
+      (define-key km "\C-c\C-o" 'gnu-social-remote-user-timeline)
+      (define-key km "\C-c\C-s" 'gnu-social-update-status-interactive)
+      (define-key km "\C-c\C-d" 'gnu-social-direct-message-interactive)
+      (define-key km "\C-c\C-m" 'gnu-social-redent)
+      (define-key km "\C-c\C-h" 'gnu-social-toggle-highlight)
+      (define-key km "r" 'gnu-social-repeat)
+      (define-key km "F" 'gnu-social-favorite)
+      (define-key km "\C-c\C-e" 'gnu-social-erase-old-statuses)
+      (define-key km "\C-m" 'gnu-social-enter)
+      (define-key km "R" 'gnu-social-reply-to-user)
+      (define-key km "A" 'gnu-social-reply-to-all)
+      (define-key km "\t" 'gnu-social-next-link)
+      (define-key km [backtab] 'gnu-social-prev-link)
+      (define-key km [mouse-1] 'gnu-social-click)
+      (define-key km "\C-c\C-v" 'gnu-social-view-user-page)
       (define-key km "q" 'bury-buffer)
-      (define-key km "e" 'identica-expand-replace-at-point)
-      (define-key km "j" 'identica-goto-next-status)
-      (define-key km "k" 'identica-goto-previous-status)
+      (define-key km "e" 'gnu-social-expand-replace-at-point)
+      (define-key km "j" 'gnu-social-goto-next-status)
+      (define-key km "k" 'gnu-social-goto-previous-status)
       (define-key km "l" 'forward-char)
       (define-key km "h" 'backward-char)
       (define-key km "0" 'beginning-of-line)
       (define-key km "^" 'beginning-of-line-text)
       (define-key km "$" 'end-of-line)
-      (define-key km "n" 'identica-goto-next-status-of-user)
-      (define-key km "p" 'identica-goto-previous-status-of-user)
+      (define-key km "n" 'gnu-social-goto-next-status-of-user)
+      (define-key km "p" 'gnu-social-goto-previous-status-of-user)
       (define-key km [backspace] 'scroll-down)
       (define-key km " " 'scroll-up)
       (define-key km "G" 'end-of-buffer)
-      (define-key km "g" 'identica-current-timeline)
+      (define-key km "g" 'gnu-social-current-timeline)
       (define-key km "H" 'beginning-of-buffer)
-      (define-key km "i" 'identica-icon-mode)
-      (define-key km "s" 'identica-scroll-mode)
-      (define-key km "t" 'identica-toggle-proxy)
-      (define-key km "\C-k" 'identica-delete-notice)
-      (define-key km "\C-c\C-p" 'identica-toggle-proxy)
+      (define-key km "i" 'gnu-social-icon-mode)
+      (define-key km "s" 'gnu-social-scroll-mode)
+      (define-key km "t" 'gnu-social-toggle-proxy)
+      (define-key km "\C-k" 'gnu-social-delete-notice)
+      (define-key km "\C-c\C-p" 'gnu-social-toggle-proxy)
       nil))
 
-(defvar identica-mode-syntax-table nil "")
+(defvar gnu-social-mode-syntax-table nil "")
 
-(if identica-mode-syntax-table
+(if gnu-social-mode-syntax-table
     ()
-  (setq identica-mode-syntax-table (make-syntax-table))
-  ;; (modify-syntax-entry ?  "" identica-mode-syntax-table)
-  (modify-syntax-entry ?\" "w"  identica-mode-syntax-table))
+  (setq gnu-social-mode-syntax-table (make-syntax-table))
+  ;; (modify-syntax-entry ?  "" gnu-social-mode-syntax-table)
+  (modify-syntax-entry ?\" "w"  gnu-social-mode-syntax-table))
 
-(defun identica-mode-init-variables ()
+(defun gnu-social-mode-init-variables ()
   ;; (make-variable-buffer-local 'variable)
   ;; (setq variable nil)
-  (make-variable-buffer-local 'identica-active-mode)
-  (set-default 'identica-active-mode t)
+  (make-variable-buffer-local 'gnu-social-active-mode)
+  (set-default 'gnu-social-active-mode t)
   (font-lock-mode -1)
-  (defface identica-username-face
+  (defface gnu-social-username-face
     `((t nil)) "" :group 'faces)
-  (defface identica-reply-face
+  (defface gnu-social-reply-face
     `((t nil)) "" :group 'faces)
-  (defface identica-stripe-face
+  (defface gnu-social-stripe-face
     `((t nil)) "" :group 'faces)
-  (defface identica-highlight-face
+  (defface gnu-social-highlight-face
     `((t nil)) "" :group 'faces)
-  (defface identica-uri-face
+  (defface gnu-social-uri-face
     `((t nil)) "" :group 'faces)
-  (defface identica-heart-face
+  (defface gnu-social-heart-face
     `((t nil)) "" :group 'faces)
 
-  (add-to-list 'minor-mode-alist '(identica-icon-mode " id-icon"))
-  (add-to-list 'minor-mode-alist '(identica-scroll-mode " id-scroll"))
+  (add-to-list 'minor-mode-alist '(gnu-social-icon-mode " id-icon"))
+  (add-to-list 'minor-mode-alist '(gnu-social-scroll-mode " id-scroll"))
 
   ;; make face properties nonsticky
-  (unless (boundp 'identica-text-property-nonsticky-adjustment)
-    (setq identica-text-property-nonsticky-adjustment t)
+  (unless (boundp 'gnu-social-text-property-nonsticky-adjustment)
+    (setq gnu-social-text-property-nonsticky-adjustment t)
     (nconc text-property-default-nonsticky
            '((face . t)(mouse-face . t)(uri . t)(source . t)(uri-in-text . t))))
 
-  (identica-create-account))
+  (gnu-social-create-account))
 
-(defun identica-create-account ()
+(defun gnu-social-create-account ()
   "Create an account object based on the various custom variables.
-  Insert it into the statusnet accounts list.
+  Insert it into the gnu-social accounts list.
 This needs to be called from any globally-accessable entry point."
-  (unless (boundp 'statusnet-account-created)
-    (setq statusnet-account-created t)
-    (setq statusnet-accounts
-          (cons (make-statusnet-account
-                 :server statusnet-server
-                 :port statusnet-port
-                 :username identica-username
-                 :auth-mode identica-auth-mode
-                 :password identica-password
-                 :textlimit statusnet-server-textlimit
-                 :oauth-data (if (string= identica-auth-mode "oauth")
-                                 (make-statusnet-oauth-data
-                                  :consumer-key identica-mode-oauth-consumer-key
-                                  :consumer-secret identica-mode-oauth-consumer-secret
-                                  :request-url statusnet-request-url
-                                  :access-url statusnet-access-url
-                                  :authorize-url statusnet-authorize-url
-                                  :access-token nil)
+  (unless (boundp 'gnu-social-account-created)
+    (setq gnu-social-account-created t)
+    (setq gnu-social-accounts
+          (cons (make-gnu-social-account
+                 :server gnu-social-server
+                 :port gnu-social-port
+                 :username gnu-social-username
+                 :auth-mode gnu-social-auth-mode
+                 :password gnu-social-password
+                 :textlimit gnu-social-server-textlimit
+                 :oauth-data (if (string= gnu-social-auth-mode "oauth")
+				 (progn
+				   (when (or (null gnu-social-mode-oauth-consumer-key)
+					     (null gnu-social-mode-oauth-consumer-secret)
+					     (null gnu-social-request-url)
+					     (null gnu-social-access-url)
+					     (null gnu-social-authorize-url))
+				     (user-error "%s"
+						 "You must define the necessary OAuth \
+variables if you will use OAuth \
+authentication"))
+				   (make-gnu-social-oauth-data
+				    :consumer-key gnu-social-mode-oauth-consumer-key
+				    :consumer-secret gnu-social-mode-oauth-consumer-secret
+				    :request-url gnu-social-request-url
+				    :access-url gnu-social-access-url
+				    :authorize-url gnu-social-authorize-url
+				    :access-token nil))
                                nil)
                  :last-timeline-retrieved nil)
-                statusnet-accounts))
-    (setq sn-current-account (car statusnet-accounts))))
+                gnu-social-accounts))
+    (setq gn-current-account (car gnu-social-accounts))))
 
 (defmacro case-string (str &rest clauses)
   `(cond
@@ -682,19 +681,19 @@ This needs to be called from any globally-accessable entry point."
 
 ;; If you use Emacs21, decode-char 'ucs will fail unless Mule-UCS is loaded.
 ;; TODO: Show error messages if Emacs 21 without Mule-UCS
-(defmacro identica-ucs-to-char (num)
+(defmacro gnu-social-ucs-to-char (num)
   (if (functionp 'ucs-to-char)
       `(ucs-to-char ,num)
     `(decode-char 'ucs ,num)))
 
-(defvar identica-mode-string identica-method)
+(defvar gnu-social-mode-string gnu-social-method)
 
-(defun identica-set-mode-string (loading)
-  (with-current-buffer (identica-buffer)
+(defun gnu-social-set-mode-string (loading)
+  (with-current-buffer (gnu-social-buffer)
     (let ((timeline-url
-           (concat (or identica-remote-server
-                       (sn-account-server sn-current-account))
-                   "/" identica-method)))
+           (concat (or gnu-social-remote-server
+                       (gn-account-server gn-current-account))
+                   "/" gnu-social-method)))
       (setq mode-name
             (if loading (concat
                          (if (stringp loading) loading "loading")
@@ -702,58 +701,58 @@ This needs to be called from any globally-accessable entry point."
               timeline-url))
       (debug-print mode-name))))
 
-(defvar identica-mode-hook nil
-  "Identica-mode hook.")
+(defvar gnu-social-mode-hook nil
+  "GNU-Social-mode hook.")
 
-(defcustom identica-load-hook nil
-  "Hook that is run after identica-mode.el has been loaded."
-  :group 'identica-mode
+(defcustom gnu-social-load-hook nil
+  "Hook that is run after gnu-social-mode.el has been loaded."
+  :group 'gnu-social-mode
   :type 'hook)
 
-(defun identica-kill-buffer-function ()
-  (when (eq major-mode 'identica-mode)
-    (identica-stop)))
+(defun gnu-social-kill-buffer-function ()
+  (when (eq major-mode 'gnu-social-mode)
+    (gnu-social-stop)))
 
-(defun identica-autoload-oauth ()
+(defun gnu-social-autoload-oauth ()
   "Autoloads oauth.el when needed."
   (autoload 'oauth-authorize-app "oauth")
   (autoload 'oauth-hexify-string "oauth")
   (autoload 'make-oauth-access-token "oauth"))
 
-(defun identica-mode ()
-  "Major mode for Identica.
-  \\{identica-mode-map}"
+(defun gnu-social-mode ()
+  "Major mode for GNU Social.
+  \\{gnu-social-mode-map}"
   (interactive)
-  (identica-autoload-oauth)
-  (switch-to-buffer (identica-buffer))
-  (buffer-disable-undo (identica-buffer))
+  (gnu-social-autoload-oauth)
+  (switch-to-buffer (gnu-social-buffer))
+  (buffer-disable-undo (gnu-social-buffer))
   (kill-all-local-variables)
-  (identica-mode-init-variables)
-  (use-local-map identica-mode-map)
-  (setq major-mode 'identica-mode)
-  (setq mode-name identica-mode-string)
+  (gnu-social-mode-init-variables)
+  (use-local-map gnu-social-mode-map)
+  (setq major-mode 'gnu-social-mode)
+  (setq mode-name gnu-social-mode-string)
   (setq mode-line-buffer-identification
         `(,(default-value 'mode-line-buffer-identification)
-          (:eval (identica-mode-line-buffer-identification))))
-  (identica-update-mode-line)
-  (set-syntax-table identica-mode-syntax-table)
+          (:eval (gnu-social-mode-line-buffer-identification))))
+  (gnu-social-update-mode-line)
+  (set-syntax-table gnu-social-mode-syntax-table)
   (font-lock-mode -1)
-  (if identica-soft-wrap-status
+  (if gnu-social-soft-wrap-status
       (if (fboundp 'visual-line-mode)
           (visual-line-mode t)
         (if (fboundp 'longlines-mode)
             (longlines-mode t))))
-  (identica-retrieve-configuration)
-  (add-hook 'kill-buffer-hook 'identica-kill-buffer-function)
-  (run-mode-hooks 'identica-mode-hook))
+  (gnu-social-retrieve-configuration)
+  (add-hook 'kill-buffer-hook 'gnu-social-kill-buffer-function)
+  (run-mode-hooks 'gnu-social-mode-hook))
 
 ;;;
 ;;; Basic HTTP functions
 ;;;
 
-(defun identica-set-proxy (&optional url username passwd server port)
+(defun gnu-social-set-proxy (&optional url username passwd server port)
   "Sets the proxy authentication variables as required by url library.
-When called with no arguments, it reads `identica-mode' proxy
+When called with no arguments, it reads `gnu-social-mode' proxy
 variables to get the authentication parameters.URL is either a string
 or parsed URL.  If URL is non-nil and valid, proxy authentication
 values are read from it.  The rest of the arguments can be used to
@@ -764,10 +763,10 @@ alist `url-http-proxy-basic-auth-storage' and sets `url-using-proxy'."
                    (url-generic-parse-url url)
                  url))
          (port (or (and href (url-port href))
-                   port identica-proxy-port))
+                   port gnu-social-proxy-port))
          (port (if (integerp port) (int-to-string port) port))
          (server (or (and href (url-host href))
-                     server identica-proxy-server))
+                     server gnu-social-proxy-server))
          (server (and server
                       (concat server (when port (concat ":" port)))))
          (file (if href (let ((file-url (url-filename href)))
@@ -777,11 +776,11 @@ alist `url-http-proxy-basic-auth-storage' and sets `url-using-proxy'."
                            (t (url-basepath file-url))))
                  "Proxy"))
          (password (or (and href (url-password href))
-                       passwd identica-proxy-password))
+                       passwd gnu-social-proxy-password))
          (auth (concat (or (and href (url-user href))
-                           username identica-proxy-user)
+                           username gnu-social-proxy-user)
                        (and password (concat ":" password)))))
-    (when (and identica-proxy-use
+    (when (and gnu-social-proxy-use
                (not (string= "" server))
                (not (string= "" auth)))
       (setq url-using-proxy server)
@@ -798,53 +797,53 @@ alist `url-http-proxy-basic-auth-storage' and sets `url-using-proxy'."
                               (base64-encode-string auth))
                         (cdr-safe proxy-double-alist))))))))
 
-(defun identica-change-user ()
+(defun gnu-social-change-user ()
   (interactive)
   "Interactive function to instantly change user authentication.
 Directly reads parameters from user.  This function only sets the
-identica-mode variables `(sn-account-username sn-current-account)' and
-`(sn-account-password sn-current-account)'.
-It is the `identica-set-auth' function that eventually sets the
+gnu-social-mode variables `(gn-account-username gn-current-account)' and
+`(gn-account-password gn-current-account)'.
+It is the `gnu-social-set-auth' function that eventually sets the
 url library variables according to the above variables which does the
 authentication.  This will be done automatically in normal use cases
 enabling dynamic change of user authentication."
   (interactive)
-  (identica-ask-credentials)
-  (identica-get-timeline))
+  (gnu-social-ask-credentials)
+  (gnu-social-get-timeline))
 
-(defun identica-ask-credentials ()
+(defun gnu-social-ask-credentials ()
   "Asks for your username and password."
-  (setf (sn-account-username sn-current-account)
-        (read-string (concat "Username [for " (sn-account-server sn-current-account)
-                             ":" (int-to-string (sn-account-port sn-current-account)) "]: ")
-                     nil nil (sn-account-username sn-current-account))
-        (sn-account-password sn-current-account)
-        (read-passwd "Password: " nil (sn-account-password sn-current-account))))
+  (setf (gn-account-username gn-current-account)
+        (read-string (concat "Username [for " (gn-account-server gn-current-account)
+                             ":" (int-to-string (gn-account-port gn-current-account)) "]: ")
+                     nil nil (gn-account-username gn-current-account))
+        (gn-account-password gn-current-account)
+        (read-passwd "Password: " nil (gn-account-password gn-current-account))))
 
-(defun identica-set-auth (&optional url username passwd server port)
+(defun gnu-social-set-auth (&optional url username passwd server port)
   "Sets the authentication parameters as required by url library.
 If URL is non-nil and valid, it reads user authentication
 parameters from url.  If URL is nil, Rest of the arguments can be
 used to directly set user authentication.
 When called with no arguments, user authentication parameters are
-read from identica-mode variables `(sn-account-username sn-current-account)'
-`(sn-account-password sn-current-account)' `(sn-account-server sn-current-account)'
- `(sn-account-port sn-current-account)'.
+read from gnu-social-mode variables `(gn-account-username gn-current-account)'
+`(gn-account-password gn-current-account)' `(gn-account-server gn-current-account)'
+ `(gn-account-port gn-current-account)'.
 The username and password can also be set on ~/.authinfo,
 ~/.netrc or ~/.authinfo.gpg files for better security.
-In this case `(sn-account-password sn-current-account)' should
+In this case `(gn-account-password gn-current-account)' should
 not be predefined in any .emacs or init.el files, only
-`(sn-account-username sn-current-account)' should be set."
-  (unless (sn-account-username sn-current-account)
-    (identica-ask-credentials))
+`(gn-account-username gn-current-account)' should be set."
+  (unless (gn-account-username gn-current-account)
+    (gnu-social-ask-credentials))
   (let* ((href (if (stringp url)
                    (url-generic-parse-url url)
                  url))
          (port (or (and href (url-port href))
-                   port (sn-account-port sn-current-account)))
+                   port (gn-account-port gn-current-account)))
          (port (if (integerp port) (int-to-string port) port))
          (server (or (and href (url-host href))
-                     server (sn-account-server sn-current-account)))
+                     server (gn-account-server gn-current-account)))
          (servername server)
          (server (and server
                       (concat server (when port (concat ":" port)))))
@@ -853,7 +852,7 @@ not be predefined in any .emacs or init.el files, only
                            ((string= "" file-url) "/")
                            ((string-match "/$" file-url) file-url)
                            (t (url-basepath file-url))))
-                 "Identi.ca API"))
+                 "GNU Social API"))
 
          (auth-user (if (functionp 'auth-source-search)
                         (plist-get (car (auth-source-search :host servername :max 1)) :user)
@@ -864,9 +863,9 @@ not be predefined in any .emacs or init.el files, only
                           (plist-get (car (auth-source-search :host servername :max 1)) :secret))
                       (auth-source-user-or-password "password" server "http")))
          (password (or auth-pass (and href (url-password href))
-                       passwd (sn-account-password sn-current-account)))
+                       passwd (gn-account-password gn-current-account)))
          (auth (concat (or auth-user (and href (url-user href))
-                           username (sn-account-username sn-current-account))
+                           username (gn-account-username gn-current-account))
                        (and password (concat ":" password)))))
     (when (and (not (string= "" server))
                (not (string= "" auth)))
@@ -883,45 +882,45 @@ not be predefined in any .emacs or init.el files, only
                               (base64-encode-string auth))
                         (cdr-safe server-double-alist))))))))
 
-(defun identica-initialize-oauth ()
+(defun gnu-social-initialize-oauth ()
   "Get authentication token unless we have one stashed already.
 Shamelessly stolen from yammer.el"
-  (let ((filename (concat "~/." (sn-account-server sn-current-account) "-"
-                          (sn-account-username sn-current-account) "-oauth-token")))
+  (let ((filename (concat "~/." (gn-account-server gn-current-account) "-"
+                          (gn-account-username gn-current-account) "-oauth-token")))
     (when (file-exists-p filename)
       (save-excursion
         (find-file filename)
         (let ((str (buffer-substring (point-min) (point-max))))
           (if (string-match "\\([^:]*\\):\\(.*\\)"
                             (buffer-substring (point-min) (point-max)))
-              (setf (sn-oauth-access-token (sn-account-oauth-data sn-current-account))
+              (setf (gn-oauth-access-token (gn-account-oauth-data gn-current-account))
                     (make-oauth-access-token
-                     :consumer-key (sn-oauth-consumer-key (sn-account-oauth-data sn-current-account))
-                     :consumer-secret (sn-oauth-consumer-secret (sn-account-oauth-data sn-current-account))
+                     :consumer-key (gn-oauth-consumer-key (gn-account-oauth-data gn-current-account))
+                     :consumer-secret (gn-oauth-consumer-secret (gn-account-oauth-data gn-current-account))
                      :auth-t (make-oauth-t
                               :token (match-string 1 str)
                               :token-secret (match-string 2 str))))))
         (save-buffer)
         (kill-this-buffer)))
-    (unless (sn-oauth-access-token (sn-account-oauth-data sn-current-account))
-      (setf (sn-oauth-access-token (sn-account-oauth-data sn-current-account))
-            (oauth-authorize-app (sn-oauth-consumer-key (sn-account-oauth-data sn-current-account))
-                                 (sn-oauth-consumer-secret (sn-account-oauth-data sn-current-account))
-                                 (sn-oauth-request-url (sn-account-oauth-data sn-current-account))
-                                 (sn-oauth-access-url (sn-account-oauth-data sn-current-account))
-                                 (sn-oauth-authorize-url (sn-account-oauth-data sn-current-account))))
+    (unless (gn-oauth-access-token (gn-account-oauth-data gn-current-account))
+      (setf (gn-oauth-access-token (gn-account-oauth-data gn-current-account))
+            (oauth-authorize-app (gn-oauth-consumer-key (gn-account-oauth-data gn-current-account))
+                                 (gn-oauth-consumer-secret (gn-account-oauth-data gn-current-account))
+                                 (gn-oauth-request-url (gn-account-oauth-data gn-current-account))
+                                 (gn-oauth-access-url (gn-account-oauth-data gn-current-account))
+                                 (gn-oauth-authorize-url (gn-account-oauth-data gn-current-account))))
       (save-excursion
         (find-file filename)
         (end-of-buffer)
-        (let ((token (oauth-access-token-auth-t (sn-oauth-access-token (sn-account-oauth-data sn-current-account)))))
+        (let ((token (oauth-access-token-auth-t (gn-oauth-access-token (gn-account-oauth-data gn-current-account)))))
           (insert (format "%s:%s\n"
                           (oauth-t-token token)
                           (oauth-t-token-secret token))))
         (save-buffer)
         (kill-this-buffer))))
-  (sn-oauth-access-token (sn-account-oauth-data sn-current-account)))
+  (gn-oauth-access-token (gn-account-oauth-data gn-current-account)))
 
-(defun identica-http-get
+(defun gnu-social-http-get
   (server auth-mode method-class method &optional parameters sentinel sentinel-arguments)
   "Basic function which communicates with server.
 METHOD-CLASS and METHOD are parameters for getting dents messages and
@@ -932,7 +931,7 @@ its corresponding value SENTINEL represents the callback function to
 be called after the http response is completely retrieved.
 SENTINEL-ARGUMENTS is the list of arguments (if any) of the SENTINEL
 procedure."
-  (or sentinel (setq sentinel 'identica-http-get-default-sentinel))
+  (or sentinel (setq sentinel 'gnu-social-http-get-default-sentinel))
   (let ((url (concat "http://" server "/api/"
                      (when (not (string-equal method-class "none"))
                        (concat method-class "/" ))
@@ -942,45 +941,45 @@ procedure."
                                (mapconcat
                                 (lambda (param-pair)
                                   (format "%s=%s"
-                                          (identica-percent-encode (car param-pair))
-                                          (identica-percent-encode (cdr param-pair))))
+                                          (gnu-social-percent-encode (car param-pair))
+                                          (gnu-social-percent-encode (cdr param-pair))))
                                 parameters
                                 "&")))))
-        (url-package-name "emacs-identica-mode")
-        (url-package-version identica-mode-version)
+        (url-package-name "emacs-gnu-social-mode")
+        (url-package-version gnu-social-mode-version)
         (url-show-status nil))
-    (identica-set-proxy)
+    (gnu-social-set-proxy)
     (unless (equal auth-mode "none")
       (if (equal auth-mode "oauth")
-          (or (sn-oauth-access-token (sn-account-oauth-data sn-current-account))
-              (identica-initialize-oauth))
-        (identica-set-auth url)))
-    (when (get-buffer-process identica-http-buffer)
-      (delete-process identica-http-buffer)
-      (kill-buffer identica-http-buffer))
-    (setq identica-http-buffer
-          (identica-url-retrieve url sentinel method-class
+          (or (gn-oauth-access-token (gn-account-oauth-data gn-current-account))
+              (gnu-social-initialize-oauth))
+        (gnu-social-set-auth url)))
+    (when (get-buffer-process gnu-social-http-buffer)
+      (delete-process gnu-social-http-buffer)
+      (kill-buffer gnu-social-http-buffer))
+    (setq gnu-social-http-buffer
+          (gnu-social-url-retrieve url sentinel method-class
                                  method parameters sentinel-arguments auth-mode))
-    (set-buffer identica-buffer)
-    (identica-set-mode-string t)))
+    (set-buffer gnu-social-buffer)
+    (gnu-social-set-mode-string t)))
 
-(defun identica-render-pending-dents ()
+(defun gnu-social-render-pending-dents ()
   (interactive)
   "If at the time an HTTP request for new dents finishes,
-identica-buffer is not active, we defer its update, to make sure
+gnu-social-buffer is not active, we defer its update, to make sure
 we adjust point within the right frame."
-  (identica-render-timeline)
-  (when (> identica-new-dents-count 0)
-    (run-hooks 'identica-new-dents-hook)
-    (setq identica-new-dents-count 0))
-  (when identica-display-success-messages
+  (gnu-social-render-timeline)
+  (when (> gnu-social-new-dents-count 0)
+    (run-hooks 'gnu-social-new-dents-hook)
+    (setq gnu-social-new-dents-count 0))
+  (when gnu-social-display-success-messages
     (message "Success: Get")))
 
-(defun identica-http-get-default-sentinel
+(defun gnu-social-http-get-default-sentinel
   (&optional status method-class method parameters success-message)
   (debug-print (window-buffer))
   (let ((error-object (assoc-workaround :error status))
-        (active-p (eq (window-buffer) (identica-buffer))))
+        (active-p (eq (window-buffer) (gnu-social-buffer))))
     (cond (error-object
            (let ((error-data (format "%s" (caddr error-object))))
              (when (cond
@@ -990,39 +989,39 @@ we adjust point within the right frame."
                      (message "No Such User: %s" (substring method 14))
                      t)
                     ((y-or-n-p
-                      (format "Identica-Mode: Network error:%s Retry? "
+                      (format "GNU-Social-Mode: Network error:%s Retry? "
                               status))
-                     (identica-http-get (sn-account-server sn-current-account)
-                                        (sn-account-auth-mode sn-current-account)
+                     (gnu-social-http-get (gn-account-server gn-current-account)
+                                        (gn-account-auth-mode gn-current-account)
                                         method-class method parameters)
                      nil))
                ;; when the network process is deleted by another query
                ;; or the user queried is not found , query is _finished_
-               ;; unsuccessful and we want to restore identica-method
+               ;; unsuccessful and we want to restore gnu-social-method
                ;; to loose track of this unsuccessful attempt
-               (setq identica-method (sn-account-last-timeline-retrieved sn-current-account)))))
+               (setq gnu-social-method (gn-account-last-timeline-retrieved gn-current-account)))))
           ((< (- (point-max) (or (re-search-forward ">\r?\n\r*$" nil t) 0)) 2)
            ;;Checking the whether the message is complete by
            ;;searching for > that closes the last tag, followed by
            ;;CRLF at (point-max)
-           (let ((body (identica-get-response-body)))
+           (let ((body (gnu-social-get-response-body)))
              (if (not body)
-                 (identica-set-mode-string nil)
-               (setq identica-new-dents-count
-                     (+ identica-new-dents-count
+                 (gnu-social-set-mode-string nil)
+               (setq gnu-social-new-dents-count
+                     (+ gnu-social-new-dents-count
                         (count t (mapcar
-                                  #'identica-cache-status-datum
-                                  (reverse (identica-xmltree-to-status
+                                  #'gnu-social-cache-status-datum
+                                  (reverse (gnu-social-xmltree-to-status
                                             body))))))
                                         ; Shorten the timeline if necessary
-               (if (and identica-display-max-dents
-                        (> (safe-length identica-timeline-data)
-                           identica-display-max-dents))
-                   (cl-set-nthcdr identica-display-max-dents
-                                  identica-timeline-data nil))
+               (if (and gnu-social-display-max-dents
+                        (> (safe-length gnu-social-timeline-data)
+                           gnu-social-display-max-dents))
+                   (cl-set-nthcdr gnu-social-display-max-dents
+                                  gnu-social-timeline-data nil))
                (if active-p
-                   (identica-render-pending-dents)
-                 (identica-set-mode-string "pending"))))))))
+                   (gnu-social-render-pending-dents)
+                 (gnu-social-set-mode-string "pending"))))))))
 
 (defun merge-text-attribute (start end new-face attribute)
   "Merge the ATTRIBUTE of NEW-FACE into the text between START and END.
@@ -1043,19 +1042,19 @@ we are interested in."
                              (list 'face (list attribute bg))))
       (setq start next-change))))
 
-(defun identica-render-timeline ()
-  (with-current-buffer (identica-buffer)
-    (set-face-attribute 'identica-username-face nil
+(defun gnu-social-render-timeline ()
+  (with-current-buffer (gnu-social-buffer)
+    (set-face-attribute 'gnu-social-username-face nil
                         :underline t)
-    (set-face-attribute 'identica-reply-face nil
-                        :background identica-reply-bg-color)
-    (set-face-attribute 'identica-stripe-face nil
-                        :background identica-stripe-bg-color)
-    (set-face-attribute 'identica-highlight-face nil
-                        :background identica-highlight-bg-color)
-    (set-face-attribute 'identica-uri-face nil
+    (set-face-attribute 'gnu-social-reply-face nil
+                        :background gnu-social-reply-bg-color)
+    (set-face-attribute 'gnu-social-stripe-face nil
+                        :background gnu-social-stripe-bg-color)
+    (set-face-attribute 'gnu-social-highlight-face nil
+                        :background gnu-social-highlight-bg-color)
+    (set-face-attribute 'gnu-social-uri-face nil
                         :underline t)
-    (set-face-attribute 'identica-heart-face nil
+    (set-face-attribute 'gnu-social-heart-face nil
                         :foreground "firebrick1" :height 2.0)
     (let ((point (point))
           (end (point-max))
@@ -1070,14 +1069,14 @@ we are interested in."
       (mapc (lambda (status)
               (let ((before-status (point-marker))
                     (blacklisted 'nil)
-                    (formatted-status (identica-format-status
-                                       status identica-status-format)))
+                    (formatted-status (gnu-social-format-status
+                                       status gnu-social-status-format)))
                 (mapc (lambda (regex)
                         (when (string-match-p regex formatted-status)
                           (setq blacklisted 't)))
-                      identica-blacklist)
+                      gnu-social-blacklist)
                 (unless blacklisted
-                  (when identica-enable-striping
+                  (when gnu-social-enable-striping
                     (setq stripe-entry (not stripe-entry)))
                   (insert formatted-status)
                   (when (not wrapped)
@@ -1085,29 +1084,29 @@ we are interested in."
                      (save-excursion (beginning-of-line -1) (point)) (point)))
                   (insert-and-inherit "\n")
                   ;; Apply highlight overlays to status
-                  (when (or (string-equal (sn-account-username sn-current-account)
+                  (when (or (string-equal (gn-account-username gn-current-account)
                                           (assoc-default 'in-reply-to-screen-name status))
                             (string-match
-                             (concat "@" (sn-account-username sn-current-account)
+                             (concat "@" (gn-account-username gn-current-account)
                                      "\\([^[:word:]_-]\\|$\\)") (assoc-default 'text status)))
-                    (merge-text-attribute before-status (point) 'identica-reply-face :background))
-                  (when (and identica-enable-highlighting
-                             (memq (assoc-default 'id status) identica-highlighted-entries))
-                    (merge-text-attribute before-status (point) 'identica-highlight-face :background))
+                    (merge-text-attribute before-status (point) 'gnu-social-reply-face :background))
+                  (when (and gnu-social-enable-highlighting
+                             (memq (assoc-default 'id status) gnu-social-highlighted-entries))
+                    (merge-text-attribute before-status (point) 'gnu-social-highlight-face :background))
                   (when stripe-entry
-                    (merge-text-attribute before-status (point) 'identica-stripe-face :background))
-                  (when identica-oldest-first (goto-char (point-min))))))
-            identica-timeline-data)
-      (when (and identica-image-stack window-system) (clear-image-cache))
+                    (merge-text-attribute before-status (point) 'gnu-social-stripe-face :background))
+                  (when gnu-social-oldest-first (goto-char (point-min))))))
+            gnu-social-timeline-data)
+      (when (and gnu-social-image-stack window-system) (clear-image-cache))
       (when wrapped (funcall wrapped 1))
       (setq buffer-read-only t)
       (debug-print (current-buffer))
-      (goto-char (+ point (if identica-scroll-mode (- (point-max) end) 0)))
-      (identica-set-mode-string nil)
-      (setf (sn-account-last-timeline-retrieved sn-current-account) identica-method)
+      (goto-char (+ point (if gnu-social-scroll-mode (- (point-max) end) 0)))
+      (gnu-social-set-mode-string nil)
+      (setf (gn-account-last-timeline-retrieved gn-current-account) gnu-social-method)
       (if transient-mark-mode (deactivate-mark)))))
 
-(defun identica-format-status (status format-str)
+(defun gnu-social-format-status (status format-str)
   (flet ((attr (key)
                (assoc-default key status))
          (profile-image
@@ -1117,13 +1116,13 @@ we are interested in."
               (let ((filename (match-string-no-properties 1 profile-image-url))
                     (xfilename (match-string-no-properties 0 profile-image-url)))
                 ;; download icons if does not exist
-                (unless (file-exists-p (concat identica-tmp-dir filename))
-                  (if (file-exists-p (concat identica-tmp-dir xfilename))
+                (unless (file-exists-p (concat gnu-social-tmp-dir filename))
+                  (if (file-exists-p (concat gnu-social-tmp-dir xfilename))
                       (setq filename xfilename)
                     (setq filename nil)
-                    (add-to-list 'identica-image-stack profile-image-url)))
-                (when (and identica-icon-mode filename)
-                  (let ((avatar (create-image (concat identica-tmp-dir filename))))
+                    (add-to-list 'gnu-social-image-stack profile-image-url)))
+                (when (and gnu-social-icon-mode filename)
+                  (let ((avatar (create-image (concat gnu-social-tmp-dir filename))))
                     ;; Make sure the avatar is 48 pixels (which it should already be!, but hey...)
                     ;; For offenders, the top left slice of 48 by 48 pixels is displayed
                     ;; TODO: perhaps make this configurable?
@@ -1169,11 +1168,11 @@ we are interested in."
              (unless (or (null reply-id) (string= "" reply-id)
                          (null reply-name) (string= "" reply-name))
                (let ((in-reply-to-string (format "in reply to %s" reply-name))
-                     (url (identica-get-status-url reply-id)))
+                     (url (gnu-social-get-status-url reply-id)))
                  (add-text-properties
                   0 (length in-reply-to-string)
                   `(mouse-face highlight
-                               face identica-uri-face
+                               face gnu-social-uri-face
                                uri ,url)
                   in-reply-to-string)
                  (push (concat " " in-reply-to-string) result)))))
@@ -1184,7 +1183,7 @@ we are interested in."
           ((?c)                     ; %c - created_at (raw UTC string)
            (push (attr 'created-at) result))
           ((?C) ; %C{time-format-str} - created_at (formatted with time-format-str)
-           (push (identica-local-strftime
+           (push (gnu-social-local-strftime
                   (or (match-string-no-properties 2 format-str) "%H:%M:%S")
                   (attr 'created-at))
                  result))
@@ -1210,12 +1209,12 @@ we are interested in."
                            ((< secs 84600) (format "about %d hours ago"
                                                    (/ (+ secs 1800) 3600)))
                            (t (format-time-string "%I:%M %p %B %d, %Y" created-at))))
-               (setq url (identica-get-status-url (attr 'id)))
+               (setq url (gnu-social-get-status-url (attr 'id)))
                ;; make status url clickable
                (add-text-properties
                 0 (length time-string)
                 `(mouse-face highlight
-                             face identica-uri-face
+                             face gnu-social-uri-face
                              uri ,url)
                 time-string)
                (push time-string result))))
@@ -1240,7 +1239,7 @@ we are interested in."
           ((?h)
            (let ((likes (attr 'favorited)))
              (when (string= "true" likes)
-               (push (propertize "❤" 'face 'identica-heart-face) result))))
+               (push (propertize "❤" 'face 'gnu-social-heart-face) result))))
           (t
            (push (char-to-string c) result))))
       (push (substring format-str cursor) result)
@@ -1254,12 +1253,12 @@ we are interested in."
                              formatted-status)
         formatted-status))))
 
-(defun identica-url-retrieve
+(defun gnu-social-url-retrieve
   (url sentinel method-class method parameters sentinel-arguments &optional auth-mode unhex-workaround)
   "Call url-retrieve or oauth-url-retrieve dsepending on the mode.
 Apply url-unhex-string workaround if necessary."
   (if (and (equal auth-mode "oauth")
-           (sn-oauth-access-token (sn-account-oauth-data sn-current-account)))
+           (gn-oauth-access-token (gn-account-oauth-data gn-current-account)))
       (if unhex-workaround
           (flet ((oauth-extract-url-params
                   (req)
@@ -1270,50 +1269,50 @@ bug in url-unhex-string present in emacsen previous to 23.3."
                       (mapcar (lambda (pair)
                                 `(,(car pair) . ,(w3m-url-decode-string (cadr pair))))
                               (url-parse-query-string (substring url (match-end 0))))))))
-            (identica-url-retrieve url sentinel method-class method parameters sentinel-arguments auth-mode))
-        (oauth-url-retrieve (sn-oauth-access-token (sn-account-oauth-data sn-current-account)) url sentinel
+            (gnu-social-url-retrieve url sentinel method-class method parameters sentinel-arguments auth-mode))
+        (oauth-url-retrieve (gn-oauth-access-token (gn-account-oauth-data gn-current-account)) url sentinel
                             (append (list method-class method parameters)
                                     sentinel-arguments)))
     (url-retrieve url sentinel
                   (append (list method-class method parameters)
                           sentinel-arguments))))
 
-(defun identica-http-post
+(defun gnu-social-http-post
   (method-class method &optional parameters sentinel sentinel-arguments)
-  "Send HTTP POST request to statusnet server.
-METHOD-CLASS must be one of Identica API method classes(statuses, users or direct_messages).
-METHOD must be one of Identica API method which belongs to METHOD-CLASS.
+  "Send HTTP POST request to gnu-social server.
+METHOD-CLASS must be one of GNU Social API method classes(statuses, users or direct_messages).
+METHOD must be one of GNU Social API method which belongs to METHOD-CLASS.
 PARAMETERS is alist of URI parameters. ex) ((\"mode\" . \"view\") (\"page\" . \"6\")) => <URI>?mode=view&page=6"
-  (or sentinel (setq sentinel 'identica-http-post-default-sentinel))
+  (or sentinel (setq sentinel 'gnu-social-http-post-default-sentinel))
   (let ((url-request-method "POST")
-        (url (concat "http://"(sn-account-server sn-current-account) "/api/" method-class "/" method ".xml"
+        (url (concat "http://"(gn-account-server gn-current-account) "/api/" method-class "/" method ".xml"
                      (when parameters
                        (concat "?"
                                (mapconcat
                                 (lambda (param-pair)
                                   (format "%s=%s"
-                                          (identica-percent-encode (car param-pair))
-                                          (identica-percent-encode (cdr param-pair))))
+                                          (gnu-social-percent-encode (car param-pair))
+                                          (gnu-social-percent-encode (cdr param-pair))))
                                 parameters
                                 "&")))))
-        (url-package-name "emacs-identicamode")
-        (url-package-version identica-mode-version)
+        (url-package-name "emacs-gnu-socialmode")
+        (url-package-version gnu-social-mode-version)
         ;; (if (assoc `media parameters)
         ;; (url-request-extra-headers '(("Content-Type" . "multipart/form-data")))
         (url-request-extra-headers '(("Content-Length" . "0")))
         (url-show-status nil))
-    (identica-set-proxy)
-    (if (equal (sn-account-auth-mode sn-current-account) "oauth")
-        (or (sn-oauth-access-token (sn-account-oauth-data sn-current-account))
-            (identica-initialize-oauth))
-      (identica-set-auth url))
-    (when (get-buffer-process identica-http-buffer)
-      (delete-process identica-http-buffer)
-      (kill-buffer identica-http-buffer))
-    (identica-url-retrieve url sentinel method-class method parameters
-                           sentinel-arguments (sn-account-auth-mode sn-current-account) identica-unhex-broken)))
+    (gnu-social-set-proxy)
+    (if (equal (gn-account-auth-mode gn-current-account) "oauth")
+        (or (gn-oauth-access-token (gn-account-oauth-data gn-current-account))
+            (gnu-social-initialize-oauth))
+      (gnu-social-set-auth url))
+    (when (get-buffer-process gnu-social-http-buffer)
+      (delete-process gnu-social-http-buffer)
+      (kill-buffer gnu-social-http-buffer))
+    (gnu-social-url-retrieve url sentinel method-class method parameters
+                           sentinel-arguments (gn-account-auth-mode gn-current-account) gnu-social-unhex-broken)))
 
-(defun identica-http-post-default-sentinel
+(defun gnu-social-http-post-default-sentinel
   (&optional status method-class method parameters success-message)
   (let ((error-object (assoc-workaround :error status)))
     (cond  ((and
@@ -1321,13 +1320,13 @@ PARAMETERS is alist of URI parameters. ex) ((\"mode\" . \"view\") (\"page\" . \"
              (y-or-n-p (format "Network error:%s %s Retry? "
                                (cadr error-object)
                                (caddr error-object))))
-            (identica-http-post method-class method parameters nil success-message))
-           (identica-display-success-messages
+            (gnu-social-http-post method-class method parameters nil success-message))
+           (gnu-social-display-success-messages
             (message (or success-message "Success: Post")))))
   (unless (get-buffer-process (current-buffer))
     (kill-buffer (current-buffer))))
 
-(defun identica-get-response-header (&optional buffer)
+(defun gnu-social-get-response-header (&optional buffer)
   "Exract HTTP response header from HTTP response.
 BUFFER may be a buffer or the name of an existing buffer.
  If BUFFER is omitted, 'current-buffer' is parsed."
@@ -1340,7 +1339,7 @@ BUFFER may be a buffer or the name of an existing buffer.
     (and (> end 1)
          (buffer-substring (point-min) end))))
 
-(defun identica-get-response-body (&optional buffer)
+(defun gnu-social-get-response-body (&optional buffer)
   "Exract HTTP response body from HTTP response, parse it as XML, and return a XML tree as list.
 `buffer' may be a buffer or the name of an existing buffer.
  If `buffer' is omitted, current-buffer is parsed."
@@ -1352,16 +1351,16 @@ BUFFER may be a buffer or the name of an existing buffer.
                  (goto-char (point-min))
                  (and (re-search-forward "<\\?xml" (point-max) t)
                       (match-beginning 0)))))
-    (identica-clean-response-body)
+    (gnu-social-clean-response-body)
     (and start
          (prog1
              (xml-parse-region start (point-max))
-           (if identica-debug-mode
+           (if gnu-social-debug-mode
                t
              (kill-buffer buffer))))))
 
-(defun identica-clean-weird-chars (&optional buffer)
-  (with-current-buffer identica-http-buffer
+(defun gnu-social-clean-weird-chars (&optional buffer)
+  (with-current-buffer gnu-social-http-buffer
     (goto-char (point-min))
     (while (re-search-forward "\
 
@@ -1373,23 +1372,23 @@ BUFFER may be a buffer or the name of an existing buffer.
 (replace-match ""))
 (buffer-string)))
 
-(defun identica-clean-response-body ()
+(defun gnu-social-clean-response-body ()
   "Remove weird strings (e.g., 1afc, a or 0) from the response body.
-Known Statusnet issue.  Mostly harmless except if in tags."
+Known GNU Social issue.  Mostly harmless except if in tags."
   (goto-char (point-min))
   (while (re-search-forward "\r?\n[0-9a-z]+\r?\n" nil t)
     (replace-match "")))
 
-(defun identica-compare-statuses (a b)
+(defun gnu-social-compare-statuses (a b)
   "Compare a pair of statuses.
 For use as a predicate for sort."
   (< (assoc-default 'id b) (assoc-default 'id a)))
 
-(defun identica-cache-status-datum (status-datum &optional data-var)
-  "Cache status datum into data-var(default `identica-timeline-data')
+(defun gnu-social-cache-status-datum (status-datum &optional data-var)
+  "Cache status datum into data-var(default `gnu-social-timeline-data')
 If STATUS-DATUM is already in DATA-VAR, return nil.  If not, return t."
   (when (null data-var)
-    (setf data-var 'identica-timeline-data))
+    (setf data-var 'gnu-social-timeline-data))
   (let ((id (cdr (assq 'id status-datum))))
     (if (or (null (symbol-value data-var))
             (not (find-if
@@ -1398,11 +1397,11 @@ If STATUS-DATUM is already in DATA-VAR, return nil.  If not, return t."
                   (symbol-value data-var))))
         (progn
           (set data-var (sort (cons status-datum (symbol-value data-var))
-                              'identica-compare-statuses))
+                              'gnu-social-compare-statuses))
           t)
       nil)))
 
-(defun identica-status-to-status-datum (status)
+(defun gnu-social-status-to-status-datum (status)
   (flet ((assq-get (item seq)
                    (car (cddr (assq item seq)))))
     (let* ((status-data (cddr status))
@@ -1422,28 +1421,28 @@ If STATUS-DATUM is already in DATA-VAR, return nil.  If not, return t."
            regex-index)
 
       (setq id (string-to-number (assq-get 'id status-data)))
-      (setq text (identica-decode-html-entities
+      (setq text (gnu-social-decode-html-entities
                   (assq-get 'text status-data)))
-      (setq source (identica-decode-html-entities
+      (setq source (gnu-social-decode-html-entities
                     (assq-get 'source status-data)))
       (setq created-at (assq-get 'created_at status-data))
       (setq truncated (assq-get 'truncated status-data))
       (setq favorited (assq-get 'favorited status-data))
       (setq in-reply-to-status-id
-            (identica-decode-html-entities
+            (gnu-social-decode-html-entities
              (assq-get 'in_reply_to_status_id status-data)))
       (setq in-reply-to-screen-name
-            (identica-decode-html-entities
+            (gnu-social-decode-html-entities
              (assq-get 'in_reply_to_screen_name status-data)))
       (setq conversation-id (or (assq-get 'statusnet:conversation_id status-data) "0"))
       (setq user-id (string-to-number (assq-get 'id user-data)))
-      (setq user-name (identica-decode-html-entities
+      (setq user-name (gnu-social-decode-html-entities
                        (assq-get 'name user-data)))
-      (setq user-screen-name (identica-decode-html-entities
+      (setq user-screen-name (gnu-social-decode-html-entities
                               (assq-get 'screen_name user-data)))
-      (setq user-location (identica-decode-html-entities
+      (setq user-location (gnu-social-decode-html-entities
                            (assq-get 'location user-data)))
-      (setq user-description (identica-decode-html-entities
+      (setq user-description (gnu-social-decode-html-entities
                               (assq-get 'description user-data)))
       (setq user-profile-image-url (assq-get 'profile_image_url user-data))
       (setq user-url (assq-get 'url user-data))
@@ -1455,16 +1454,16 @@ If STATUS-DATUM is already in DATA-VAR, return nil.  If not, return t."
        0 (length user-name)
        `(mouse-face highlight
                     uri ,user-profile-url
-                    face identica-username-face)
+                    face gnu-social-username-face)
        user-name)
 
       ;; make screen-name clickable
       (add-text-properties
        0 (length user-screen-name)
        `(mouse-face highlight
-                    face identica-username-face
+                    face gnu-social-username-face
                     uri ,user-profile-url
-                    face identica-username-face)
+                    face gnu-social-username-face)
        user-screen-name)
 
       ;; make URI clickable
@@ -1488,21 +1487,21 @@ If STATUS-DATUM is already in DATA-VAR, return nil.  If not, return t."
              (if (or screen-name group-name tag-name)
                  `(mouse-face
                    highlight
-                   face identica-uri-face
+                   face gnu-social-uri-face
                    uri ,(if screen-name
-                            (concat "https://" (sn-account-server sn-current-account) "/" screen-name)
+                            (concat "https://" (gn-account-server gn-current-account) "/" screen-name)
                           (if group-name
-                              (concat "https://" (sn-account-server sn-current-account) "/group/" group-name)
-                            (concat "https://" (sn-account-server sn-current-account) "/tag/" tag-name)))
+                              (concat "https://" (gn-account-server gn-current-account) "/group/" group-name)
+                            (concat "https://" (gn-account-server gn-current-account) "/tag/" tag-name)))
                    uri-in-text ,(if screen-name
-                                    (concat "https://" (sn-account-server sn-current-account) "/" screen-name)
+                                    (concat "https://" (gn-account-server gn-current-account) "/" screen-name)
                                   (if group-name
-                                      (concat "https://" (sn-account-server sn-current-account) "/group/" group-name)
-                                    (concat "https://" (sn-account-server sn-current-account) "/tag/" tag-name)))
+                                      (concat "https://" (gn-account-server gn-current-account) "/group/" group-name)
+                                    (concat "https://" (gn-account-server gn-current-account) "/tag/" tag-name)))
                    tag ,tag-name
                    group ,group-name)
                `(mouse-face highlight
-                            face identica-uri-face
+                            face gnu-social-uri-face
                             uri ,uri
                             uri-in-text ,uri))
              text))
@@ -1517,12 +1516,12 @@ If STATUS-DATUM is already in DATA-VAR, return nil.  If not, return t."
           (add-text-properties
            0 (length source)
            `(mouse-face highlight
-                        face identica-uri-face
+                        face gnu-social-uri-face
                         source ,source)
            source)))
 
       ;; save last update time
-      (setq identica-timeline-last-update created-at)
+      (setq gnu-social-timeline-last-update created-at)
 
       (mapcar
        (lambda (sym)
@@ -1538,8 +1537,8 @@ If STATUS-DATUM is already in DATA-VAR, return nil.  If not, return t."
             user-url
             user-protected)))))
 
-(defun identica-xmltree-to-status (xmltree)
-  (mapcar #'identica-status-to-status-datum
+(defun gnu-social-xmltree-to-status (xmltree)
+  (mapcar #'gnu-social-status-to-status-datum
           ;; quirk to treat difference between xml.el in Emacs21 and Emacs22
           ;; On Emacs22, there may be blank strings
           (let ((ret nil) (statuses (reverse (cddr (car xmltree)))))
@@ -1549,8 +1548,8 @@ If STATUS-DATUM is already in DATA-VAR, return nil.  If not, return t."
               (setq statuses (cdr statuses)))
             ret)))
 
-(defun identica-percent-encode (str &optional coding-system)
-  (if (equal (sn-account-auth-mode sn-current-account) "oauth")
+(defun gnu-social-percent-encode (str &optional coding-system)
+  (if (equal (gn-account-auth-mode gn-current-account) "oauth")
       (oauth-hexify-string str)
     (when (or (null coding-system)
               (not (coding-system-p coding-system)))
@@ -1558,14 +1557,14 @@ If STATUS-DATUM is already in DATA-VAR, return nil.  If not, return t."
     (mapconcat
      (lambda (c)
        (cond
-        ((identica-url-reserved-p c)
+        ((gnu-social-url-reserved-p c)
          (char-to-string c))
         ((eq c ? ) "+")
         (t (format "%%%x" c))))
      (encode-coding-string str coding-system)
      "")))
 
-(defun identica-url-reserved-p (ch)
+(defun gnu-social-url-reserved-p (ch)
   (or (and (<= ?A ch) (<= ch ?z))
       (and (<= ?0 ch) (<= ch ?9))
       (eq ?. ch)
@@ -1573,7 +1572,7 @@ If STATUS-DATUM is already in DATA-VAR, return nil.  If not, return t."
       (eq ?_ ch)
       (eq ?~ ch)))
 
-(defun identica-decode-html-entities (encoded-str)
+(defun gnu-social-decode-html-entities (encoded-str)
   (if encoded-str
       (let ((cursor 0)
             (found-at nil)
@@ -1588,7 +1587,7 @@ If STATUS-DATUM is already in DATA-VAR, return nil.  If not, return t."
             (cond (number-entity
                    (push
                     (char-to-string
-                     (identica-ucs-to-char
+                     (gnu-social-ucs-to-char
                       (string-to-number number-entity))) result))
                   (letter-entity
                    (cond ((string= "gt" letter-entity) (push ">" result))
@@ -1600,104 +1599,104 @@ If STATUS-DATUM is already in DATA-VAR, return nil.  If not, return t."
         (apply 'concat (nreverse result)))
     ""))
 
-(defun identica-timer-action (func)
-  (let ((buf (get-buffer identica-buffer)))
+(defun gnu-social-timer-action (func)
+  (let ((buf (get-buffer gnu-social-buffer)))
     (if (null buf)
-        (identica-stop)
+        (gnu-social-stop)
       (funcall func))))
 
-(defun identica-update-status-if-not-blank (method-class method status &optional parameters reply-to-id)
+(defun gnu-social-update-status-if-not-blank (method-class method status &optional parameters reply-to-id)
   (if (string-match "^\\s-*\\(?:@[-_a-z0-9]+\\)?\\s-*$" status)
       nil
     (if (equal method-class "statuses")
-        (identica-http-post method-class method
+        (gnu-social-http-post method-class method
                             `(("status" . ,status)
-                              ("source" . ,identica-source)
+                              ("source" . ,gnu-social-source)
                               ,@(if (assoc `media parameters)
                                     `(("media" . ,(cdr (assoc `media parameters))))
                                   nil)
                               ,@(if reply-to-id
                                     `(("in_reply_to_status_id"
                                        . ,(number-to-string reply-to-id))))))
-      (identica-http-post method-class method
+      (gnu-social-http-post method-class method
                           `(("text" . ,status)
                             ("user" . ,parameters) ;must change this to parse parameters as list
-                            ("source" . ,identica-source))))
+                            ("source" . ,gnu-social-source))))
 
     t))
 
-(defvar identica-update-status-edit-map
+(defvar gnu-social-update-status-edit-map
   (let ((map (make-sparse-keymap)))
-    (define-key map (kbd "C-c C-c") 'identica-update-status-from-edit-buffer-send)
-    (define-key map (kbd "C-c C-k") 'identica-update-status-from-edit-buffer-cancel)
+    (define-key map (kbd "C-c C-c") 'gnu-social-update-status-from-edit-buffer-send)
+    (define-key map (kbd "C-c C-k") 'gnu-social-update-status-from-edit-buffer-cancel)
     map))
 
-(define-derived-mode identica-update-status-edit-mode text-mode "Identica Status Edit"
-  (use-local-map identica-update-status-edit-map))
+(define-derived-mode gnu-social-update-status-edit-mode text-mode "GNU Social Status Edit"
+  (use-local-map gnu-social-update-status-edit-map))
 
-(defvar identica-update-status-edit-method-class)
-(defvar identica-update-status-edit-method)
-(defvar identica-update-status-edit-parameters)
-(defvar identica-update-status-edit-reply-to-id)
+(defvar gnu-social-update-status-edit-method-class)
+(defvar gnu-social-update-status-edit-method)
+(defvar gnu-social-update-status-edit-parameters)
+(defvar gnu-social-update-status-edit-reply-to-id)
 
-(defun identica-update-status-edit-in-edit-buffer (init-str msgtype method-class method parameters &optional reply-to-id)
-  (let ((buf (get-buffer-create "*identica-status-update-edit*")))
+(defun gnu-social-update-status-edit-in-edit-buffer (init-str msgtype method-class method parameters &optional reply-to-id)
+  (let ((buf (get-buffer-create "*gnu-social-status-update-edit*")))
     (pop-to-buffer buf)
     (with-current-buffer buf
-      (when (not (equal major-mode 'identica-update-status-edit-mode))
+      (when (not (equal major-mode 'gnu-social-update-status-edit-mode))
         (progn
-          (identica-update-status-edit-mode)
-          (when identica-soft-wrap-status
+          (gnu-social-update-status-edit-mode)
+          (when gnu-social-soft-wrap-status
             (when (fboundp 'visual-line-mode)
               (visual-line-mode t)))
-          (make-local-variable 'identica-update-status-edit-method-class)
-          (make-local-variable 'identica-update-status-edit-method)
-          (make-local-variable 'identica-update-status-edit-parameters)
-          (make-local-variable 'identica-update-status-edit-reply-to-id)
+          (make-local-variable 'gnu-social-update-status-edit-method-class)
+          (make-local-variable 'gnu-social-update-status-edit-method)
+          (make-local-variable 'gnu-social-update-status-edit-parameters)
+          (make-local-variable 'gnu-social-update-status-edit-reply-to-id)
           (if (> (length parameters) 0)
               (setq mode-line-format
                     (cons (format "%s(%s) (%%i/%s) " msgtype parameters
-                                  (sn-account-textlimit sn-current-account))
+                                  (gn-account-textlimit gn-current-account))
                           mode-line-format))
             t (setq mode-line-format
-                    (cons (format "%s (%%i/%s) " msgtype (sn-account-textlimit sn-current-account))
+                    (cons (format "%s (%%i/%s) " msgtype (gn-account-textlimit gn-current-account))
                           mode-line-format)))))
-      (setq identica-update-status-edit-method-class method-class)
-      (setq identica-update-status-edit-method method)
-      (setq identica-update-status-edit-parameters parameters)
-      (setq identica-update-status-edit-reply-to-id reply-to-id)
-      (message identica-update-status-edit-method-class)
+      (setq gnu-social-update-status-edit-method-class method-class)
+      (setq gnu-social-update-status-edit-method method)
+      (setq gnu-social-update-status-edit-parameters parameters)
+      (setq gnu-social-update-status-edit-reply-to-id reply-to-id)
+      (message gnu-social-update-status-edit-method-class)
       (insert init-str)
       (message "Type C-c C-c to post status update (C-c C-k to cancel)."))))
 
-(defcustom identica-minibuffer-length-prompt-style nil
+(defcustom gnu-social-minibuffer-length-prompt-style nil
   "The preferred style of counting characters in the minibuffer.
-prompt; \"Down\" counts down from (sn-account-textlimit sn-current-account); \"Up\" counts
+prompt; \"Down\" counts down from (gn-account-textlimit gn-current-account); \"Up\" counts
   up from 0"
   :type '(choice (const :tag "Down" nil)
                  (const :tag "Up" t))
-  :group 'identica-mode)
+  :group 'gnu-social-mode)
 
-(defun identica-show-minibuffer-length (&optional beg end len)
+(defun gnu-social-show-minibuffer-length (&optional beg end len)
   "Show the number of characters in minibuffer."
   (when (minibuffer-window-active-p (selected-window))
     (let* ((status-len (- (buffer-size) (minibuffer-prompt-width)))
-           (mes (format "%d" (if identica-minibuffer-length-prompt-style
+           (mes (format "%d" (if gnu-social-minibuffer-length-prompt-style
                                  status-len
-                               (- (sn-account-textlimit sn-current-account) status-len)))))
+                               (- (gn-account-textlimit gn-current-account) status-len)))))
       (if (<= 23 emacs-major-version)
           (minibuffer-message mes) ; Emacs23 or later
         (minibuffer-message (concat " (" mes ")"))))))
 
-(defun identica-setup-minibuffer ()
-  (identica-show-minibuffer-length)
-  (add-hook 'post-command-hook 'identica-show-minibuffer-length t t))
+(defun gnu-social-setup-minibuffer ()
+  (gnu-social-show-minibuffer-length)
+  (add-hook 'post-command-hook 'gnu-social-show-minibuffer-length t t))
 
-(defun identica-finish-minibuffer ()
-  (remove-hook 'post-command-hook 'identica-show-minibuffer-length t))
+(defun gnu-social-finish-minibuffer ()
+  (remove-hook 'post-command-hook 'gnu-social-show-minibuffer-length t))
 
-(defun identica-update-status (update-input-method &optional init-str reply-to-id method-class method parameters)
-  (identica-create-account)
+(defun gnu-social-update-status (update-input-method &optional init-str reply-to-id method-class method parameters)
+  (gnu-social-create-account)
   (when (null init-str) (setq init-str ""))
   (let ((msgtype "")
         (status init-str)
@@ -1705,7 +1704,7 @@ prompt; \"Down\" counts down from (sn-account-textlimit sn-current-account); \"U
         (user nil)
         (map minibuffer-local-map)
         (minibuffer-message-timeout nil))
-    (define-key map (kbd "<f4>") 'identica-shortenurl-replace-at-point)
+    (define-key map (kbd "<f4>") 'gnu-social-shortenurl-replace-at-point)
     (if (null method-class)
         (progn (setq msgtype "Status")
                (setq method-class "statuses")
@@ -1715,82 +1714,82 @@ prompt; \"Down\" counts down from (sn-account-textlimit sn-current-account); \"U
              (setq parameters (read-from-minibuffer "To user: " user nil nil nil nil t))
              (setq method "new")))
     (cond ((eq update-input-method 'minibuffer)
-           (add-hook 'minibuffer-setup-hook 'identica-setup-minibuffer t)
-           (add-hook 'minibuffer-exit-hook 'identica-finish-minibuffer t)
+           (add-hook 'minibuffer-setup-hook 'gnu-social-setup-minibuffer t)
+           (add-hook 'minibuffer-exit-hook 'gnu-social-finish-minibuffer t)
            (unwind-protect
                (while not-posted-p
                  (setq status (read-from-minibuffer (concat msgtype ": ") status nil nil nil nil t))
-                 (while (< (+ (sn-account-textlimit sn-current-account) 1) (length status))
+                 (while (< (+ (gn-account-textlimit gn-current-account) 1) (length status))
                    (setq status (read-from-minibuffer (format (concat msgtype "(%d): ")
-                                                              (- (sn-account-textlimit sn-current-account) (length status)))
+                                                              (- (gn-account-textlimit gn-current-account) (length status)))
                                                       status nil nil nil nil t)))
                  (setq not-posted-p
-                       (not (identica-update-status-if-not-blank method-class method status parameters reply-to-id))))
-             (remove-hook 'minibuffer-setup-hook 'identica-setup-minibuffer)
-             (remove-hook 'minibuffer-exit-hook 'identica-finish-minibuffer)))
+                       (not (gnu-social-update-status-if-not-blank method-class method status parameters reply-to-id))))
+             (remove-hook 'minibuffer-setup-hook 'gnu-social-setup-minibuffer)
+             (remove-hook 'minibuffer-exit-hook 'gnu-social-finish-minibuffer)))
           ((eq update-input-method 'edit-buffer)
-           (identica-update-status-edit-in-edit-buffer init-str msgtype method-class method parameters reply-to-id))
-          (t (error "Unknown update-input-method in identica-update-status: %S" update-input-method)))))
+           (gnu-social-update-status-edit-in-edit-buffer init-str msgtype method-class method parameters reply-to-id))
+          (t (error "Unknown update-input-method in gnu-social-update-status: %S" update-input-method)))))
 
-(defun identica-update-status-from-edit-buffer-send ()
+(defun gnu-social-update-status-from-edit-buffer-send ()
   (interactive)
-  (with-current-buffer "*identica-status-update-edit*"
+  (with-current-buffer "*gnu-social-status-update-edit*"
     (if longlines-mode
         (longlines-encode-region (point-min) (point-max)))
     (let* ((status (buffer-substring-no-properties (point-min) (point-max)))
            (status-len (length status)))
-      (if (< (sn-account-textlimit sn-current-account) status-len)
+      (if (< (gn-account-textlimit gn-current-account) status-len)
           (message (format "Beyond %s chars.  Remove %d chars."
-                           (sn-account-textlimit sn-current-account)
-                           (- status-len (sn-account-textlimit sn-current-account))))
-        (if (identica-update-status-if-not-blank identica-update-status-edit-method-class
-                                                 identica-update-status-edit-method status
-                                                 identica-update-status-edit-parameters
-                                                 identica-update-status-edit-reply-to-id)
+                           (gn-account-textlimit gn-current-account)
+                           (- status-len (gn-account-textlimit gn-current-account))))
+        (if (gnu-social-update-status-if-not-blank gnu-social-update-status-edit-method-class
+                                                 gnu-social-update-status-edit-method status
+                                                 gnu-social-update-status-edit-parameters
+                                                 gnu-social-update-status-edit-reply-to-id)
             (progn
               (erase-buffer)
               (bury-buffer))
           (message "Update failed!"))))))
 
-(defun identica-update-status-from-minibuffer (&optional init-str method-class method parameters reply-to-id)
+(defun gnu-social-update-status-from-minibuffer (&optional init-str method-class method parameters reply-to-id)
   (interactive)
-  (identica-update-status 'minibuffer init-str method-class method parameters reply-to-id))
+  (gnu-social-update-status 'minibuffer init-str method-class method parameters reply-to-id))
 
-(defun identica-update-status-from-edit-buffer (&optional init-str method-class method parameters)
+(defun gnu-social-update-status-from-edit-buffer (&optional init-str method-class method parameters)
   (interactive)
-  (identica-update-status 'edit-buffer init-str method-class method parameters))
+  (gnu-social-update-status 'edit-buffer init-str method-class method parameters))
 
-(defun identica-update-status-from-edit-buffer-cancel ()
+(defun gnu-social-update-status-from-edit-buffer-cancel ()
   (interactive)
-  (when (or (not identica-update-status-edit-confirm-cancellation)
+  (when (or (not gnu-social-update-status-edit-confirm-cancellation)
             (yes-or-no-p
              "Really cancel editing this status message (any changes will be lost)?"))
     (erase-buffer)
     (bury-buffer)))
 
-(defun identica-update-status-from-region (beg end)
+(defun gnu-social-update-status-from-region (beg end)
   (interactive "r")
-  (when (> (- end beg) (sn-account-textlimit sn-current-account))
-    (setq end (+ beg (sn-account-textlimit sn-current-account))))
-  (when (< (- end beg) (sn-account-textlimit sn-current-account))
-    (setq beg (+ end (sn-account-textlimit sn-current-account))))
-  (identica-update-status-if-not-blank "statuses" "update" (buffer-substring beg end)))
+  (when (> (- end beg) (gn-account-textlimit gn-current-account))
+    (setq end (+ beg (gn-account-textlimit gn-current-account))))
+  (when (< (- end beg) (gn-account-textlimit gn-current-account))
+    (setq beg (+ end (gn-account-textlimit gn-current-account))))
+  (gnu-social-update-status-if-not-blank "statuses" "update" (buffer-substring beg end)))
 
-(defun identica-update-status-with-media (attachment &optional init-str method-class method parameters reply-to-id)
+(defun gnu-social-update-status-with-media (attachment &optional init-str method-class method parameters reply-to-id)
   (interactive "f")
-  (identica-update-status 'minibuffer nil reply-to-id nil nil `((media . ,(insert-file-contents-literally attachment)))))
+  (gnu-social-update-status 'minibuffer nil reply-to-id nil nil `((media . ,(insert-file-contents-literally attachment)))))
 
-(defun identica-tinyurl-unjson-google (result)
+(defun gnu-social-tinyurl-unjson-google (result)
   "Gets only the URL from JSON URL tinyfying service results.
 
 Google's shortening service, goo.gl, returns shortened URLs as a
 JSON dictionary. This function retrieves only the URL value from
-this dictionary, only if identica-urlshortening-service is 'google."
-  (if (eq identica-urlshortening-service 'google)
+this dictionary, only if gnu-social-urlshortening-service is 'google."
+  (if (eq gnu-social-urlshortening-service 'google)
       (cdr (assoc 'short_url (json-read-from-string result)))
     result))
 
-(defun identica-ur1ca-get (api longurl)
+(defun gnu-social-ur1ca-get (api longurl)
   "Shortens url through ur1.ca free service 'as in freedom'."
   (let* ((apiurl (if (string-match "\\(http://.*\\)\\?\\(.*=\\)" api)
                   (match-string 1 api)))
@@ -1803,7 +1802,7 @@ this dictionary, only if identica-urlshortening-service is 'google."
     (with-current-buffer buffer
       (goto-char (point-min))
       (prog1
-          (if (string-equal identica-urlshortening-service "ur1ca")
+          (if (string-equal gnu-social-urlshortening-service "ur1ca")
               (if (search-forward-regexp "Your .* is: .*>\\(http://ur1.ca/[0-9A-Za-z].*\\)</a>" nil t)
                   (match-string-no-properties 1)
                 (error "URL shortening service failed: %s" longurl))
@@ -1812,66 +1811,66 @@ this dictionary, only if identica-urlshortening-service is 'google."
               (error "URL shortening service failed: %s" longurl)))
         (kill-buffer buffer)))))
 
-(defun identica-shortenurl-get (longurl)
+(defun gnu-social-shortenurl-get (longurl)
   "Shortens url through a url shortening service."
-  (let ((api (cdr (assoc identica-urlshortening-service
-                         identica-urlshortening-services-map))))
+  (let ((api (cdr (assoc gnu-social-urlshortening-service
+                         gnu-social-urlshortening-services-map))))
     (unless api
-      (error "`identica-urlshortening-service' was invalid.  try one of %s"
+      (error "`gnu-social-urlshortening-service' was invalid.  try one of %s"
              (mapconcat (lambda (x)
                           (symbol-name (car x)))
-                        identica-urlshortening-services-map ", ")
+                        gnu-social-urlshortening-services-map ", ")
              "."))
     (if longurl
-        (if (not (eq identica-urlshortening-service 'google))
-            (identica-ur1ca-get api longurl)
+        (if (not (eq gnu-social-urlshortening-service 'google))
+            (gnu-social-ur1ca-get api longurl)
           (let ((buffer (url-retrieve-synchronously (concat api longurl))))
             (with-current-buffer buffer
               (goto-char (point-min))
               (prog1
-                  (identica-tinyurl-unjson-google
+                  (gnu-social-tinyurl-unjson-google
                    (if (search-forward-regexp "\n\r?\n\\([^\n\r]*\\)" nil t)
                        (match-string-no-properties 1)
                      (error "URL shortening service failed: %s" longurl)))
                 (kill-buffer buffer))))
           nil))))
 
-(defun identica-shortenurl-replace-at-point ()
+(defun gnu-social-shortenurl-replace-at-point ()
   "Replace the url at point with a tiny version."
   (interactive)
   (let ((url-bounds (bounds-of-thing-at-point 'url)))
     (when url-bounds
-      (let ((url (identica-shortenurl-get (thing-at-point 'url))))
+      (let ((url (gnu-social-shortenurl-get (thing-at-point 'url))))
         (when url
           (save-restriction
             (narrow-to-region (car url-bounds) (cdr url-bounds))
             (delete-region (point-min) (point-max))
             (insert url)))))))
 
-(defun identica-expand-replace-at-point ()
+(defun gnu-social-expand-replace-at-point ()
   "Replace the url at point with a tiny version."
   (interactive)
   (let ((url-bounds (bounds-of-thing-at-point 'url))
         (original-url (thing-at-point 'url)))
     (when url-bounds
       (message (concat "Expanding url: " original-url))
-      (let ((uri (identica-expand-shorturl original-url)))
+      (let ((uri (gnu-social-expand-shorturl original-url)))
         (when uri
-          (set-buffer (get-buffer identica-buffer))
+          (set-buffer (get-buffer gnu-social-buffer))
           (save-restriction
             (setq buffer-read-only nil)
             (narrow-to-region (car url-bounds) (cdr url-bounds))
             (delete-region (point-min) (point-max))
             (add-text-properties 0 (length uri)
                                  `(mouse-face highlight
-                                              face identica-uri-face
+                                              face gnu-social-uri-face
                                               uri ,uri
                                               uri-in-text ,uri) uri)
             (insert uri)
             (message (concat "Expanded Short URL " original-url "to Long URL: " uri))
             (setq buffer-read-only t)))))))
 
-(defun identica-expand-shorturl (url)
+(defun gnu-social-expand-shorturl (url)
   "Return the redirected URL, or the original url if not found."
   (let ((temp-buf (get-buffer-create "*HTTP headers*")))
     (set-buffer temp-buf)
@@ -1883,28 +1882,28 @@ this dictionary, only if identica-urlshortening-service is 'google."
          (file (if (string-match "/" url)
                    (substring url (string-match "/" url))
                  "/"))
-         (tcp-connection (open-network-stream "Identica URLExpand"
+         (tcp-connection (open-network-stream "GNU Social URLExpand"
                                               temp-buf host 80))
          (request (concat "GET http://" url " HTTP/1.1\r\n"
                           "Host:" host "\r\n"
-                          "User-Agent: " (identica-user-agent) "\r\n"
+                          "User-Agent: " (gnu-social-user-agent) "\r\n"
                           "Authorization: None\r\n"
                           "Accept-Charset: utf-8;q=0.7,*;q=0.7\r\n\r\n")))
       (set-marker (process-mark tcp-connection) (point-min))
-      (set-process-sentinel tcp-connection 'identica-http-headers-sentinel)
+      (set-process-sentinel tcp-connection 'gnu-social-http-headers-sentinel)
       (process-send-string tcp-connection request)
       (sit-for 2)
-      (let ((location (identica-get-location-from-header (concat "http://" host file) tcp-connection)))
+      (let ((location (gnu-social-get-location-from-header (concat "http://" host file) tcp-connection)))
         (delete-process tcp-connection)
         (kill-buffer temp-buf)
         location))))
 
-(defun identica-http-headers-sentinel (process string)
+(defun gnu-social-http-headers-sentinel (process string)
   "Process the results from the efine network connection."
 
   )
 
-(defun identica-get-location-from-header (url process)
+(defun gnu-social-get-location-from-header (url process)
   "Parse HTTP header."
   (let ((buffer)
         (headers)
@@ -1922,127 +1921,127 @@ this dictionary, only if identica-urlshortening-service is 'google."
 ;;; Commands
 ;;;
 
-(defun identica-start (&optional action)
+(defun gnu-social-start (&optional action)
   (interactive)
   (when (null action)
-    (setq action #'identica-current-timeline))
-  (if identica-timer
+    (setq action #'gnu-social-current-timeline))
+  (if gnu-social-timer
       nil
-    (setq identica-timer
+    (setq gnu-social-timer
           (run-at-time "0 sec"
-                       identica-timer-interval
-                       #'identica-timer-action action)))
-  (set 'identica-active-mode t)
-  (identica-update-mode-line))
+                       gnu-social-timer-interval
+                       #'gnu-social-timer-action action)))
+  (set 'gnu-social-active-mode t)
+  (gnu-social-update-mode-line))
 
-(defun identica-stop ()
+(defun gnu-social-stop ()
   "Stop Current network activitiy (if any) and the reload-timer."
   (interactive)
-  (when (get-buffer-process identica-http-buffer)
-    (delete-process identica-http-buffer)
-    (kill-buffer identica-http-buffer))
-  (setq identica-method (sn-account-last-timeline-retrieved sn-current-account))
-  (identica-set-mode-string nil)
-  (and identica-timer
-       (cancel-timer identica-timer))
-  (setq identica-timer nil)
-  (set 'identica-active-mode nil)
-  (identica-update-mode-line))
+  (when (get-buffer-process gnu-social-http-buffer)
+    (delete-process gnu-social-http-buffer)
+    (kill-buffer gnu-social-http-buffer))
+  (setq gnu-social-method (gn-account-last-timeline-retrieved gn-current-account))
+  (gnu-social-set-mode-string nil)
+  (and gnu-social-timer
+       (cancel-timer gnu-social-timer))
+  (setq gnu-social-timer nil)
+  (set 'gnu-social-active-mode nil)
+  (gnu-social-update-mode-line))
 
-(defun identica-switch-account ()
+(defun gnu-social-switch-account ()
   "Update the current account and reload the default timeline."
   (interactive)
-  (let ((current-account (member* sn-current-account statusnet-accounts)))
-    (setq sn-current-account
+  (let ((current-account (member* gn-current-account gnu-social-accounts)))
+    (setq gn-current-account
           (if (cdr current-account)
               (cadr current-account)
-            (car statusnet-accounts))
-          identica-timeline-data nil)
-    (identica-current-timeline)))
+            (car gnu-social-accounts))
+          gnu-social-timeline-data nil)
+    (gnu-social-current-timeline)))
 
-(defun identica-get-timeline (&optional server parameters)
-  (setq identica-remote-server server)
-  (unless parameters (setq parameters `(("count" . ,(int-to-string identica-statuses-count)))))
-  (when (not (eq (sn-account-last-timeline-retrieved sn-current-account) identica-method))
-    (setq identica-timeline-last-update nil
-          identica-timeline-data nil))
-  (let ((buf (get-buffer identica-buffer)))
+(defun gnu-social-get-timeline (&optional server parameters)
+  (setq gnu-social-remote-server server)
+  (unless parameters (setq parameters `(("count" . ,(int-to-string gnu-social-statuses-count)))))
+  (when (not (eq (gn-account-last-timeline-retrieved gn-current-account) gnu-social-method))
+    (setq gnu-social-timeline-last-update nil
+          gnu-social-timeline-data nil))
+  (let ((buf (get-buffer gnu-social-buffer)))
     (if (not buf)
-        (identica-stop)
+        (gnu-social-stop)
       (progn
-        (when (not identica-method)
-          (setq identica-method "friends_timeline"))
-        (identica-http-get (or server (sn-account-server sn-current-account))
+        (when (not gnu-social-method)
+          (setq gnu-social-method "friends_timeline"))
+        (gnu-social-http-get (or server (gn-account-server gn-current-account))
                            (if server "none"
-                             (sn-account-auth-mode sn-current-account))
-                           identica-method-class identica-method parameters))))
-  (identica-get-icons))
+                             (gn-account-auth-mode gn-current-account))
+                           gnu-social-method-class gnu-social-method parameters))))
+  (gnu-social-get-icons))
 
-(defun identica-get-icons ()
+(defun gnu-social-get-icons ()
   "Retrieve icons if icon-mode is active."
-  (if identica-icon-mode
-      (if (and identica-image-stack window-system)
+  (if gnu-social-icon-mode
+      (if (and gnu-social-image-stack window-system)
           (let ((proc
                  (apply
                   #'start-process
                   "wget-images"
                   nil
                   "wget"
-                  (format "--directory-prefix=%s" identica-tmp-dir)
+                  (format "--directory-prefix=%s" gnu-social-tmp-dir)
                   "--no-clobber"
                   "--quiet"
-                  identica-image-stack)))
+                  gnu-social-image-stack)))
             (set-process-sentinel
              proc
              (lambda (proc stat)
                (clear-image-cache)
                ))))))
 
-(defun identica-friends-timeline ()
+(defun gnu-social-friends-timeline ()
   (interactive)
-  (setq identica-method "friends_timeline")
-  (setq identica-method-class "statuses")
-  (identica-get-timeline))
+  (setq gnu-social-method "friends_timeline")
+  (setq gnu-social-method-class "statuses")
+  (gnu-social-get-timeline))
 
-(defun identica-replies-timeline ()
+(defun gnu-social-replies-timeline ()
   (interactive)
-  (setq identica-method "replies")
-  (setq identica-method-class "statuses")
-  (identica-get-timeline))
+  (setq gnu-social-method "replies")
+  (setq gnu-social-method-class "statuses")
+  (gnu-social-get-timeline))
 
-;; (defun identica-direct-messages-timeline ()
+;; (defun gnu-social-direct-messages-timeline ()
 ;;   (interactive)
-;;   (setq identica-method "direct_messages")
-;;   (setq identica-method-class "none")
-;;   (identica-get-timeline))
+;;   (setq gnu-social-method "direct_messages")
+;;   (setq gnu-social-method-class "none")
+;;   (gnu-social-get-timeline))
 
-(defun identica-public-timeline ()
+(defun gnu-social-public-timeline ()
   (interactive)
-  (setq identica-method "public_timeline")
-  (setq identica-method-class "statuses")
-  (identica-get-timeline))
+  (setq gnu-social-method "public_timeline")
+  (setq gnu-social-method-class "statuses")
+  (gnu-social-get-timeline))
 
-(defun identica-group-timeline (&optional group)
+(defun gnu-social-group-timeline (&optional group)
   (interactive)
   (unless group
     (setq group (read-from-minibuffer "Group: " nil nil nil nil nil t)))
-  (setq identica-method-class "statusnet/groups")
+  (setq gnu-social-method-class "statusnet/groups")
   (if (string-equal group "")
-      (setq identica-method "timeline")
-    (setq identica-method (concat "timeline/" group)))
-  (identica-get-timeline))
+      (setq gnu-social-method "timeline")
+    (setq gnu-social-method (concat "timeline/" group)))
+  (gnu-social-get-timeline))
 
-(defun identica-tag-timeline (&optional tag)
+(defun gnu-social-tag-timeline (&optional tag)
   (interactive)
   (unless tag
     (setq tag (read-from-minibuffer "Tag: " nil nil nil nil nil t)))
-  (setq identica-method-class "statusnet/tags")
+  (setq gnu-social-method-class "statusnet/tags")
   (if (string-equal tag "")
-      (setq identica-method "timeline")
-    (setq identica-method (concat "timeline/" tag)))
-  (identica-get-timeline))
+      (setq gnu-social-method "timeline")
+    (setq gnu-social-method (concat "timeline/" tag)))
+  (gnu-social-get-timeline))
 
-(defun identica-user-timeline (&optional from-user)
+(defun gnu-social-user-timeline (&optional from-user)
   "Retrieve user timeline given its username.
 
 FROM-USER can be an empty string (\"\") meaning that you want to retrieve your own timeline.
@@ -2051,21 +2050,21 @@ If nil, will ask for username in minibuffer."
   (unless from-user
     (setq from-user (read-from-minibuffer "User [Empty for mine]: "
                                           nil nil nil nil nil t)))
-  (setq identica-method-class "statuses")
+  (setq gnu-social-method-class "statuses")
   (if (string-equal from-user "")
-      (setq identica-method "user_timeline")
-    (setq identica-method (concat "user_timeline/" from-user)))
-  (identica-get-timeline)
+      (setq gnu-social-method "user_timeline")
+    (setq gnu-social-method (concat "user_timeline/" from-user)))
+  (gnu-social-get-timeline)
   )
 
-(defun identica-conversation-timeline ()
+(defun gnu-social-conversation-timeline ()
   (interactive)
   (let ((context-id (get-text-property (point) 'conversation-id)))
-    (setq identica-method-class "statusnet")
-    (setq identica-method (concat "conversation/" context-id)))
-  (identica-get-timeline identica-remote-server))
+    (setq gnu-social-method-class "statusnet")
+    (setq gnu-social-method (concat "conversation/" context-id)))
+  (gnu-social-get-timeline gnu-social-remote-server))
 
-(defun identica-remote-user-timeline ()
+(defun gnu-social-remote-user-timeline ()
   (interactive)
   (let* ((profile (get-text-property (point) 'profile-url))
          (username (get-text-property (point) 'username))
@@ -2076,76 +2075,76 @@ If nil, will ask for username in minibuffer."
          (server (if (string-match "^https?://" server-url)
                      (replace-match "" nil t server-url)
                    server-url)))
-    (setq identica-method-class "statuses")
-    (setq identica-method (concat "user_timeline/" username))
-    (identica-get-timeline server)))
+    (setq gnu-social-method-class "statuses")
+    (setq gnu-social-method (concat "user_timeline/" username))
+    (gnu-social-get-timeline server)))
 
-(defun identica-current-timeline (&optional count)
+(defun gnu-social-current-timeline (&optional count)
   "Load newer notices, with an argument load older notices, and with a numeric argument load that number of notices."
   (interactive "P")
-  (if (> identica-new-dents-count 0)
-      (identica-render-pending-dents)
-    (identica-get-timeline
-     identica-remote-server
+  (if (> gnu-social-new-dents-count 0)
+      (gnu-social-render-pending-dents)
+    (gnu-social-get-timeline
+     gnu-social-remote-server
      (if count
          (cons `("count" .
                  ,(int-to-string
-                   (if (listp count) identica-statuses-count count)))
+                   (if (listp count) gnu-social-statuses-count count)))
                (if (listp count)
                    `(("max_id" .
                       ,(int-to-string
-                        (- (assoc-default 'id (car (last identica-timeline-data))) 1))))
+                        (- (assoc-default 'id (car (last gnu-social-timeline-data))) 1))))
                  ()))
        nil))))
 
-(defun identica-update-status-interactive ()
+(defun gnu-social-update-status-interactive ()
   (interactive)
-  (identica-update-status identica-update-status-method))
+  (gnu-social-update-status gnu-social-update-status-method))
 
-(defun identica-direct-message-interactive ()
+(defun gnu-social-direct-message-interactive ()
   (interactive)
-  (identica-update-status identica-update-status-method nil nil "direct_messages" "new"))
+  (gnu-social-update-status gnu-social-update-status-method nil nil "direct_messages" "new"))
 
-(defun identica-erase-old-statuses ()
+(defun gnu-social-erase-old-statuses ()
   (interactive)
-  (setq identica-timeline-data nil)
-  (when (not (sn-account-last-timeline-retrieved sn-current-account))
-    (setf (sn-account-last-timeline-retrieved sn-current-account) identica-method))
-  (identica-http-get (sn-account-server sn-current-account) (sn-account-auth-mode sn-current-account)
-                     "statuses" (sn-account-last-timeline-retrieved sn-current-account)))
+  (setq gnu-social-timeline-data nil)
+  (when (not (gn-account-last-timeline-retrieved gn-current-account))
+    (setf (gn-account-last-timeline-retrieved gn-current-account) gnu-social-method))
+  (gnu-social-http-get (gn-account-server gn-current-account) (gn-account-auth-mode gn-current-account)
+                     "statuses" (gn-account-last-timeline-retrieved gn-current-account)))
 
-(defun identica-click ()
+(defun gnu-social-click ()
   (interactive)
   (let ((uri (get-text-property (point) 'uri)))
     (when uri (browse-url uri))))
 
-(defun identica-enter ()
+(defun gnu-social-enter ()
   (interactive)
   (let ((username (get-text-property (point) 'username))
         (id (get-text-property (point) 'id))
         (uri (get-text-property (point) 'uri))
         (group (get-text-property (point) 'group))
         (tag (get-text-property (point) 'tag)))
-    (if group (identica-group-timeline group)
-      (if tag (identica-tag-timeline tag)
+    (if group (gnu-social-group-timeline group)
+      (if tag (gnu-social-tag-timeline tag)
         (if uri (browse-url uri)
           (if username
-              (identica-update-status identica-update-status-method
+              (gnu-social-update-status gnu-social-update-status-method
                                       (concat "@" username " ") id)))))))
 
-(defun identica-next-link nil
+(defun gnu-social-next-link nil
   (interactive)
   (goto-char (next-single-property-change (point) 'uri))
   (when (not (get-text-property (point) 'uri))
     (goto-char (next-single-property-change (point) 'uri))))
 
-(defun identica-prev-link nil
+(defun gnu-social-prev-link nil
   (interactive)
   (goto-char (previous-single-property-change (point) 'uri))
   (when (not (get-text-property (point) 'uri))
     (goto-char (previous-single-property-change (point) 'uri))))
 
-(defun identica-follow (&optional remove)
+(defun gnu-social-follow (&optional remove)
   (interactive)
   (let ((username (get-text-property (point) 'username))
         (method (if remove "destroy" "create"))
@@ -2154,55 +2153,55 @@ If nil, will ask for username in minibuffer."
       (setq username (read-from-minibuffer "user: ")))
     (if (> (length username) 0)
         (when (y-or-n-p (format "%s %s? " message username))
-          (identica-http-post (format "friendships/%s" method) username)
+          (gnu-social-http-post (format "friendships/%s" method) username)
           (message (format "Now %s %s" message username)))
       (message "No user selected"))))
 
-(defun identica-unfollow ()
+(defun gnu-social-unfollow ()
   (interactive)
-  (identica-follow t))
+  (gnu-social-follow t))
 
-(defun identica-group-join (&optional leaving)
+(defun gnu-social-group-join (&optional leaving)
   "Simple functions to join/leave a group we are visiting."
-  (setq identica-method-class "statusnet/groups")
-  (string-match "\\([^\\]*\\)\\(/.*\\)" identica-method)
+  (setq gnu-social-method-class "statusnet/groups")
+  (string-match "\\([^\\]*\\)\\(/.*\\)" gnu-social-method)
   (let ((group-method (replace-match
                        (if leaving "leave"
-                         "join") nil nil identica-method 1)))
-    (identica-http-post identica-method-class group-method nil)))
+                         "join") nil nil gnu-social-method 1)))
+    (gnu-social-http-post gnu-social-method-class group-method nil)))
 
-(defun identica-group-leave ()
-  (identica-group-join t))
+(defun gnu-social-group-leave ()
+  (gnu-social-group-join t))
 
-(defun identica-favorite ()
+(defun gnu-social-favorite ()
   (interactive)
   (when (y-or-n-p "Do you want to favor this notice? ")
     (let ((id (get-text-property (point) 'id)))
-      (identica-http-post "favorites/create" (number-to-string id))
+      (gnu-social-http-post "favorites/create" (number-to-string id))
       (message "Notice saved as favorite"))))
 
-(defun identica-repeat ()
+(defun gnu-social-repeat ()
   (interactive)
   (when (y-or-n-p "Do you want to repeat this notice? ")
     (let ((id (get-text-property (point) 'id)))
-      (identica-http-post "statuses/retweet" (number-to-string id))
+      (gnu-social-http-post "statuses/retweet" (number-to-string id))
       (message "Notice repeated"))))
 
-(defun identica-view-user-page ()
+(defun gnu-social-view-user-page ()
   (interactive)
   (let ((uri (get-text-property (point) 'uri)))
     (when uri (browse-url uri))))
 
-(defun identica-redent ()
+(defun gnu-social-redent ()
   (interactive)
   (let ((username (get-text-property (point) 'username))
         (id (get-text-property (point) 'id))
         (text (replace-regexp-in-string "!\\(\\b\\)" "#\\1" (get-text-property (point) 'text))))
     (when username
-      (identica-update-status identica-update-status-method
-                              (concat identica-redent-format " @" username ": " text) id))))
+      (gnu-social-update-status gnu-social-update-status-method
+                              (concat gnu-social-redent-format " @" username ": " text) id))))
 
-(defun identica-reply-to-user (all)
+(defun gnu-social-reply-to-user (all)
   "Open a minibuffer initialized to type a reply to the notice at point.
 With no argument, populate with the username of the author of the notice.
 With an argument, populate with the usernames of the author and any usernames mentioned in the notice."
@@ -2216,46 +2215,46 @@ With an argument, populate with the usernames of the author and any usernames me
       (setq usernames
             (mapcar (lambda (string)
                       (when (and (char-equal (aref string 0) ?@)
-                                 (memq-face identica-uri-face
+                                 (memq-face gnu-social-uri-face
                                             (get-text-property 2 'face string)))
                         (concat string " ")))
                     (split-string notice-text))))
     (when username (setq usernames (cons (concat "@" username " ") usernames)))
     (setq usernames (delete-dups usernames))
-    (setq usernames (delete (concat "@" (sn-account-username sn-current-account) " ") usernames))
+    (setq usernames (delete (concat "@" (gn-account-username gn-current-account) " ") usernames))
     (setq usernames-string (apply 'concat usernames))
-    (identica-update-status identica-update-status-method usernames-string id)))
+    (gnu-social-update-status gnu-social-update-status-method usernames-string id)))
 
-(defun identica-reply-to-all ()
+(defun gnu-social-reply-to-all ()
   (interactive)
-  (identica-reply-to-user t))
+  (gnu-social-reply-to-user t))
 
-(defun identica-get-password ()
-  (or (sn-account-password sn-current-account)
-      (setf (sn-account-password sn-current-account) (read-passwd "password: "))))
+(defun gnu-social-get-password ()
+  (or (gn-account-password gn-current-account)
+      (setf (gn-account-password gn-current-account) (read-passwd "password: "))))
 
-(defun identica-goto-next-status ()
+(defun gnu-social-goto-next-status ()
   "Go to next status."
   (interactive)
   (let ((pos))
-    (setq pos (identica-get-next-username-face-pos (point)))
+    (setq pos (gnu-social-get-next-username-face-pos (point)))
     (if pos
         (goto-char pos)
       (progn (goto-char (buffer-end 1)) (message "End of status.")))))
 
-(defun identica-toggle-highlight (&optional arg)
+(defun gnu-social-toggle-highlight (&optional arg)
   "Toggle the highlighting of entry at 'point'.
 With no arg or prefix, toggle the highlighting of the entry at 'point'.
 With arg (or prefix, if interactive), highlight the current entry and
 un-highlight all other entries."
   (interactive "P")
   (let ((id (get-text-property (point) 'id)))
-    (setq identica-highlighted-entries
+    (setq gnu-social-highlighted-entries
           (if arg (list id)
-            (if (memq id identica-highlighted-entries)
-                (delq id identica-highlighted-entries)
-              (cons id identica-highlighted-entries)))))
-  (identica-render-timeline))
+            (if (memq id gnu-social-highlighted-entries)
+                (delq id gnu-social-highlighted-entries)
+              (cons id gnu-social-highlighted-entries)))))
+  (gnu-social-render-timeline))
 
 (defun memq-face (face property)
   "Check whether FACE is present in PROPERTY."
@@ -2263,70 +2262,70 @@ un-highlight all other entries."
       (memq face property)
     (eq property face)))
 
-(defun identica-get-next-username-face-pos (pos &optional object)
+(defun gnu-social-get-next-username-face-pos (pos &optional object)
   "Returns the position of the next username after POS, or nil when end of string or buffer is reached."
   (interactive "P")
   (let ((prop))
     (catch 'not-found
-      (while (and pos (not (memq-face identica-username-face prop)))
+      (while (and pos (not (memq-face gnu-social-username-face prop)))
         (setq pos (next-single-property-change pos 'face object))
         (when (eq pos nil) (throw 'not-found nil))
         (setq prop (get-text-property pos 'face object)))
       pos)))
 
-(defun identica-goto-previous-status ()
+(defun gnu-social-goto-previous-status ()
   "Go to previous status."
   (interactive)
   (let ((pos))
-    (setq pos (identica-get-previous-username-face-pos (point)))
+    (setq pos (gnu-social-get-previous-username-face-pos (point)))
     (if pos
         (goto-char pos)
       (message "Start of status."))))
 
-(defun identica-get-previous-username-face-pos (pos &optional object)
+(defun gnu-social-get-previous-username-face-pos (pos &optional object)
   "Returns the position of the previous username before POS, or nil when start of string or buffer is reached."
   (interactive)
   (let ((prop))
     (catch 'not-found
-      (while (and pos (not (memq-face identica-username-face prop)))
+      (while (and pos (not (memq-face gnu-social-username-face prop)))
         (setq pos (previous-single-property-change pos 'face object))
         (when (eq pos nil) (throw 'not-found nil))
         (setq prop (get-text-property pos 'face object)))
       pos)))
 
-(defun identica-goto-next-status-of-user ()
+(defun gnu-social-goto-next-status-of-user ()
   "Go to next status of user."
   (interactive)
-  (let ((user-name (identica-get-username-at-pos (point)))
-        (pos (identica-get-next-username-face-pos (point))))
+  (let ((user-name (gnu-social-get-username-at-pos (point)))
+        (pos (gnu-social-get-next-username-face-pos (point))))
     (while (and (not (eq pos nil))
-                (not (equal (identica-get-username-at-pos pos) user-name)))
-      (setq pos (identica-get-next-username-face-pos pos)))
+                (not (equal (gnu-social-get-username-at-pos pos) user-name)))
+      (setq pos (gnu-social-get-next-username-face-pos pos)))
     (if pos
         (goto-char pos)
       (if user-name
           (message "End of %s's status." user-name)
         (message "Invalid user-name.")))))
 
-(defun identica-goto-previous-status-of-user ()
+(defun gnu-social-goto-previous-status-of-user ()
   "Go to previous status of user."
   (interactive)
-  (let ((user-name (identica-get-username-at-pos (point)))
-        (pos (identica-get-previous-username-face-pos (point))))
+  (let ((user-name (gnu-social-get-username-at-pos (point)))
+        (pos (gnu-social-get-previous-username-face-pos (point))))
     (while (and (not (eq pos nil))
-                (not (equal (identica-get-username-at-pos pos) user-name)))
-      (setq pos (identica-get-previous-username-face-pos pos)))
+                (not (equal (gnu-social-get-username-at-pos pos) user-name)))
+      (setq pos (gnu-social-get-previous-username-face-pos pos)))
     (if pos
         (goto-char pos)
       (if user-name
           (message "Start of %s's status." user-name)
         (message "Invalid user-name.")))))
 
-(defun identica-get-username-at-pos (pos)
+(defun gnu-social-get-username-at-pos (pos)
   (let ((start-pos pos)
         (end-pos))
     (catch 'not-found
-      (while (memq-face identica-username-face (get-text-property start-pos 'face))
+      (while (memq-face gnu-social-username-face (get-text-property start-pos 'face))
         (setq start-pos (1- start-pos))
         (when (or (eq start-pos nil) (eq start-pos 0)) (throw 'not-found nil)))
       (setq start-pos (1+ start-pos))
@@ -2339,45 +2338,45 @@ un-highlight all other entries."
       (and (equal tag (car array))
            (cadr array))))
 
-(defun identica-get-status-url (id)
+(defun gnu-social-get-status-url (id)
   "Generate status URL."
-  (format "https://%s/notice/%s" (sn-account-server sn-current-account) id))
+  (format "https://%s/notice/%s" (gn-account-server gn-current-account) id))
 
-(defun identica-get-context-url (id)
+(defun gnu-social-get-context-url (id)
   "Generate status URL."
-  (format "https://%s/conversation/%s" (sn-account-server sn-current-account) id))
+  (format "https://%s/conversation/%s" (gn-account-server gn-current-account) id))
 
-(defun identica-retrieve-configuration ()
-  "Retrieve the configuration for the current statusnet server."
-  (identica-http-get (sn-account-server sn-current-account) (sn-account-auth-mode sn-current-account)
-                     "statusnet" "config" nil 'identica-http-get-config-sentinel))
+(defun gnu-social-retrieve-configuration ()
+  "Retrieve the configuration for the current gnu-social server."
+  (gnu-social-http-get (gn-account-server gn-current-account) (gn-account-auth-mode gn-current-account)
+                     "gnu-social" "config" nil 'gnu-social-http-get-config-sentinel))
 
-(defun identica-http-get-config-sentinel
+(defun gnu-social-http-get-config-sentinel
   (&optional status method-class method parameters success-message)
-  "Process configuration page retrieved from statusnet server."
+  "Process configuration page retrieved from gnu-social server."
   (let ((error-object (assoc-workaround :error status)))
     (unless error-object
-      (let* ((body (identica-get-response-body))
+      (let* ((body (gnu-social-get-response-body))
              (site (xml-get-children (car body) 'site))
              (textlimit (xml-get-children (car site) 'textlimit))
              (textlimit-value (caddar textlimit)))
         (when (> (string-to-number textlimit-value) 0)
-          (setf (sn-account-textlimit sn-current-account) (string-to-number textlimit-value))))))
-  (identica-start))
+          (setf (gn-account-textlimit gn-current-account) (string-to-number textlimit-value))))))
+  (gnu-social-start))
 
-(defun identica-get-config-url ()
+(defun gnu-social-get-config-url ()
   "Generate configuration URL."
-  (format "http://%s/api/statusnet/config.xml" (sn-account-server sn-current-account)))
+  (format "http://%s/api/gnu-social/config.xml" (gn-account-server gn-current-account)))
 
 ;; Icons
 ;;; ACTIVE/INACTIVE
-(defconst identica-active-indicator-image
+(defconst gnu-social-active-indicator-image
   (when (image-type-available-p 'xpm)
     '(image :type xpm
             :ascent center
             :data
             "/* XPM */
-static char * statusnet_xpm[] = {
+static char * gnu-social_xpm[] = {
 \"16 16 14 1\",
 \"  c None\",
 \".	c #8F0000\",
@@ -2410,13 +2409,13 @@ static char * statusnet_xpm[] = {
 \"    ............\",
 \"       .      ..\"};")))
 
-(defconst identica-inactive-indicator-image
+(defconst gnu-social-inactive-indicator-image
   (when (image-type-available-p 'xpm)
     '(image :type xpm
             :ascent center
             :data
             "/* XPM */
-static char * statusnet_off_xpm[] = {
+static char * gnu_social_off_xpm[] = {
 \"16 16 13 1\",
 \"  g None\",
 \".	g #5B5B5B\",
@@ -2452,43 +2451,43 @@ static char * statusnet_off_xpm[] = {
        (when (display-mouse-p)
          `(local-map
            ,(purecopy (make-mode-line-mouse-map
-                       'mouse-2 #'identica-toggle-activate-buffer))
+                       'mouse-2 #'gnu-social-toggle-activate-buffer))
            help-echo "mouse-2 toggles automatic updates"))))
-  (defconst identica-modeline-active
-    (if identica-active-indicator-image
+  (defconst gnu-social-modeline-active
+    (if gnu-social-active-indicator-image
         (apply 'propertize " "
-               `(display ,identica-active-indicator-image ,@props))
+               `(display ,gnu-social-active-indicator-image ,@props))
       " "))
-  (defconst identica-modeline-inactive
-    (if identica-inactive-indicator-image
+  (defconst gnu-social-modeline-inactive
+    (if gnu-social-inactive-indicator-image
         (apply 'propertize "INACTIVE"
-               `(display ,identica-inactive-indicator-image ,@props))
+               `(display ,gnu-social-inactive-indicator-image ,@props))
       "INACTIVE")))
 
-(defun identica-toggle-activate-buffer ()
+(defun gnu-social-toggle-activate-buffer ()
   (interactive)
-  (setq identica-active-mode (not identica-active-mode))
-  (if (not identica-active-mode)
-      (identica-stop)
-    (identica-start)))
+  (setq gnu-social-active-mode (not gnu-social-active-mode))
+  (if (not gnu-social-active-mode)
+      (gnu-social-stop)
+    (gnu-social-start)))
 
-(defun identica-mode-line-buffer-identification ()
-  (if identica-active-mode
-      identica-modeline-active
-    identica-modeline-inactive))
+(defun gnu-social-mode-line-buffer-identification ()
+  (if gnu-social-active-mode
+      gnu-social-modeline-active
+    gnu-social-modeline-inactive))
 
-(defun identica-update-mode-line ()
+(defun gnu-social-update-mode-line ()
   "Update mode line."
   (force-mode-line-update))
 
 ;;;###autoload
-(defun identica ()
-  "Start identica-mode."
+(defun gnu-social ()
+  "Start gnu-social-mode."
   (interactive)
-  (identica-mode))
+  (gnu-social-mode))
 
-(provide 'identica-mode)
-(add-hook 'identica-load-hook 'identica-autoload-oauth)
-(run-hooks 'identica-load-hook)
+(provide 'gnu-social-mode)
+(add-hook 'gnu-social-load-hook 'gnu-social-autoload-oauth)
+(run-hooks 'gnu-social-load-hook)
 
-;;; identica-mode.el ends here
+;;; gnu-social-mode.el ends here

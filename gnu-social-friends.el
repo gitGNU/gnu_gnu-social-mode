@@ -1,4 +1,4 @@
-;;; identica-friends.el --- Check who are your friends on GNU Social
+;;; gnu-social-friends.el --- Check who are your friends on GNU Social
 
 ;; This file is part of gnu-social-mode
 ;;
@@ -17,9 +17,9 @@
 ;; the Free Software Foundation, Inc., 51 Franklin Street, Fifth
 ;; Floor, Boston, MA 02110-1301, USA.
 
-;; Filename: identica-friends.el
+;; Filename: gnu-social-friends.el
 ;; Description: A library that provides some functions to look who are 
-;;              your friends in your identi.ca account.
+;;              your friends in your GNU Social account.
 ;; Author: Christian Giménez
 ;; Maintainer:
 ;; Created: dom sep 25 17:58:40 2011 (-0300)
@@ -39,12 +39,12 @@
 ;;
 ;;; Commentary:
 ;;
-;; Use M-x identica first, if you are not connected, this library
+;; Use M-x gnu-social first, if you are not connected, this library
 ;; will not work.
-;; You can check who are your friends on Identi.ca using the function
-;; M-x identica-show-friends
+;; You can check who are your friends on GNU Social using the function
+;; M-x gnu-social-show-friends
 ;; If you want to check who are following you, type:
-;; M-x identica-show-followers
+;; M-x gnu-social-show-followers
 ;;
 ;; I divided the code into sections. This sections are tabbed asside
 ;; and commented by an only one ";". Also are overlined and underlined
@@ -52,7 +52,7 @@
 ;;
 ;; Convention:
 ;; All functions and variables in this modules has the prefix 
-;; "identica-friends" so you can identify easyly. 
+;; "gnu-social-friends" so you can identify easyly. 
 ;; The main functions may not have this prefix so users don't get
 ;; confused.
 ;;
@@ -65,7 +65,7 @@
 ;;; Code:
 
 (require 'xml)
-(require 'identica-mode)
+(require 'gnu-social-mode)
 
 					; ____________________
 					;
@@ -73,17 +73,17 @@
 					; ____________________
 
 
-(defvar identica-friends-buffer nil
-  "Friend's Buffer. Internal use of identica-friends.el."
+(defvar gnu-social-friends-buffer nil
+  "Friend's Buffer. Internal use of gnu-social-friends.el."
   )
 
-(defvar identica-friends-buffer-name "*identica-friends*"
+(defvar gnu-social-friends-buffer-name "*gnu-social-friends*"
   "Friends buffer's name. Changing this variable will effect after you
-recall identica-friends functions.
-Be aware of no function or actual buffers exists. Reboot all identica-friends functions."
+recall gnu-social-friends functions.
+Be aware of no function or actual buffers exists. Reboot all gnu-social-friends functions."
   )
 
-(defvar identica-friends-buffer-type nil
+(defvar gnu-social-friends-buffer-type nil
   "If the buffer contains a list of users, the this is setted into 'users. 
 If the buffer contains a list of groups, this is setted into 'groups.
 Nil means, no buffer or just the programmer forgot to set it! :-S ."
@@ -93,41 +93,41 @@ Nil means, no buffer or just the programmer forgot to set it! :-S ."
 					; Hooks Variables
 					; ----
 
-(defcustom identica-friends-good-bye-hooks
+(defcustom gnu-social-friends-good-bye-hooks
   'nil
-  "These functions are called as soon as the `identica-friends-good-bye' functions finnish."
+  "These functions are called as soon as the `gnu-social-friends-good-bye' functions finnish."
   :type '(hook)
   )
 
 
-(defcustom identica-friends-mode-hooks
+(defcustom gnu-social-friends-mode-hooks
   'nil
-  "These functions are called as soon as the `identica-friends-mode' functions finnish."
+  "These functions are called as soon as the `gnu-social-friends-mode' functions finnish."
   :type '(hook)
   )
 
 
-(defcustom identica-friends-show-friends-hooks
+(defcustom gnu-social-friends-show-friends-hooks
   'nil
-  "These functions are called as soon as the `identica-show-friends' functions finnish."
+  "These functions are called as soon as the `gnu-social-show-friends' functions finnish."
   :type '(hook)
   )
 
-(defcustom identica-friends-show-followers-hooks
+(defcustom gnu-social-friends-show-followers-hooks
   'nil
-  "These functions are called as soon as the `identica-show-followers' functions finnish."
+  "These functions are called as soon as the `gnu-social-show-followers' functions finnish."
   :type '(hook)
   )
 
-(defcustom identica-friends-next-user-hooks
+(defcustom gnu-social-friends-next-user-hooks
   'nil
-  "These functions are called as soon as the `identica-friends-next-user' functions finnish."
+  "These functions are called as soon as the `gnu-social-friends-next-user' functions finnish."
   :type '(hook)
   )
 
-(defcustom identica-friends-prev-user-hooks
+(defcustom gnu-social-friends-prev-user-hooks
   'nil
-  "These functions are called as soon as the `identica-friends-prev-user' functions finnish."
+  "These functions are called as soon as the `gnu-social-friends-prev-user' functions finnish."
   :type '(hook)
   )
 
@@ -139,7 +139,7 @@ Nil means, no buffer or just the programmer forgot to set it! :-S ."
 					; Faces and font-lock
 					; ____________________
 
-(defface identica-friends-mode-id
+(defface gnu-social-friends-mode-id
   '(
                                         ; If there's dark background...
     (((class color) (background dark))
@@ -156,7 +156,7 @@ Nil means, no buffer or just the programmer forgot to set it! :-S ."
   ""
   )
 
-(defface identica-friends-mode-bar
+(defface gnu-social-friends-mode-bar
   '(
                                         ; If there's dark background...
     (((class color) (background dark))
@@ -174,19 +174,19 @@ Nil means, no buffer or just the programmer forgot to set it! :-S ."
   ""
   )
 
-(defvar identica-friends-mode-font-lock
+(defvar gnu-social-friends-mode-font-lock
   '(
     ;; font-lock-keywords
     (
-     ("^Id: .*$" . 'identica-friends-mode-id)
-     ("^Nick: .*$" . 'identica-username-face)
-     ("^--------------------$" . 'identica-friends-mode-bar)
+     ("^Id: .*$" . 'gnu-social-friends-mode-id)
+     ("^Nick: .*$" . 'gnu-social-username-face)
+     ("^--------------------$" . 'gnu-social-friends-mode-bar)
      )
 
     ;; Otros...
     )
   ;;
-  "Font lock for `identica-friends--mode'"
+  "Font lock for `gnu-social-friends--mode'"
   )
 
 					; ____________________
@@ -196,18 +196,18 @@ Nil means, no buffer or just the programmer forgot to set it! :-S ."
 
 ;; Keymaps calls functions from the "Interactive API Commands" sections(see below).
 
-(defvar identica-friends-mode-map
+(defvar gnu-social-friends-mode-map
   (let ((map (make-sparse-keymap)))
-    (define-key map "q" 'identica-friends-good-bye)
-    (define-key map "n" 'identica-friends-next-user)
-    (define-key map "p" 'identica-friends-prev-user)
-    (define-key map [down] 'identica-friends-next-user)
-    (define-key map [up] 'identica-friends-prev-user)
-    (define-key map [left] 'identica-friends-prev-user)
-    (define-key map [right] 'identica-friends-next-user)    
-    (define-key map [return] 'identica-friends-goto-timeline-at-point)
+    (define-key map "q" 'gnu-social-friends-good-bye)
+    (define-key map "n" 'gnu-social-friends-next-user)
+    (define-key map "p" 'gnu-social-friends-prev-user)
+    (define-key map [down] 'gnu-social-friends-next-user)
+    (define-key map [up] 'gnu-social-friends-prev-user)
+    (define-key map [left] 'gnu-social-friends-prev-user)
+    (define-key map [right] 'gnu-social-friends-next-user)    
+    (define-key map [return] 'gnu-social-friends-goto-timeline-at-point)
     map)
-  "Keymap for `identica-friends-mode'."
+  "Keymap for `gnu-social-friends-mode'."
   )
 
 
@@ -217,15 +217,15 @@ Nil means, no buffer or just the programmer forgot to set it! :-S ."
 					; ____________________
 
 
-(define-derived-mode identica-friends-mode nil "Identica-friends-mode"
-  "Major mode for identica-friends buffer.
-Use `identica-show-friends' to call this buffer."
+(define-derived-mode gnu-social-friends-mode nil "GNU-Social-friends-mode"
+  "Major mode for gnu-social-friends buffer.
+Use `gnu-social-show-friends' to call this buffer."
   ;; font lock para ej-mode
   (set (make-local-variable 'font-lock-defaults)
-       identica-friends-mode-font-lock)
+       gnu-social-friends-mode-font-lock)
   (set (make-local-variable 'buffer-read-only) t)
   (make-local-variable 'inhibit-read-only)
-  (run-hooks 'identica-friends-mode-hooks)
+  (run-hooks 'gnu-social-friends-mode-hooks)
   )
 
 
@@ -235,66 +235,66 @@ Use `identica-show-friends' to call this buffer."
 					; ________________________________________
 
 
-(defun identica-friends-good-bye ()
-  "Bury the *identica-friends* buffer"
+(defun gnu-social-friends-good-bye ()
+  "Bury the *gnu-social-friends* buffer"
   (interactive)
-  (with-current-buffer identica-friends-buffer
+  (with-current-buffer gnu-social-friends-buffer
     (bury-buffer)
-    (run-hooks 'identica-friends-good-bye-hooks)
+    (run-hooks 'gnu-social-friends-good-bye-hooks)
     )
   )
 
-(defun identica-friends-next-user ()
-  "Put the pointer in the next friend or follower in the identica-friend buffer."
+(defun gnu-social-friends-next-user ()
+  "Put the pointer in the next friend or follower in the gnu-social-friend buffer."
   (interactive)
-  (with-current-buffer identica-friends-buffer
-    (goto-char (identica-friends-find-next-user-position))
+  (with-current-buffer gnu-social-friends-buffer
+    (goto-char (gnu-social-friends-find-next-user-position))
     )
-  (run-hooks 'identica-friends-next-user-hooks)
+  (run-hooks 'gnu-social-friends-next-user-hooks)
   )
 
-(defun identica-friends-prev-user ()
-  "Put the pointer in the previous friend or follower in the identica-friend buffer."
+(defun gnu-social-friends-prev-user ()
+  "Put the pointer in the previous friend or follower in the gnu-social-friend buffer."
   (interactive)
-  (with-current-buffer identica-friends-buffer
-    (goto-char (identica-friends-find-prev-user-position))
+  (with-current-buffer gnu-social-friends-buffer
+    (goto-char (gnu-social-friends-find-prev-user-position))
     )
-  (run-hooks 'identica-friends-prev-user-hooks)
+  (run-hooks 'gnu-social-friends-prev-user-hooks)
   )
 
-(defun identica-friends-goto-timeline-at-point ()
-  "Check whenever we are in user-list or group-list. If we are listing user, call `identica-friends-goto-user-timeline-at-point', 
-if not call `identica-friends-goto-group-timeline-at-point'."
+(defun gnu-social-friends-goto-timeline-at-point ()
+  "Check whenever we are in user-list or group-list. If we are listing user, call `gnu-social-friends-goto-user-timeline-at-point', 
+if not call `gnu-social-friends-goto-group-timeline-at-point'."
   (interactive)
   (cond 
-   ((eq identica-friends-buffer-type 'users)
-    (identica-friends-goto-user-timeline-at-point)
+   ((eq gnu-social-friends-buffer-type 'users)
+    (gnu-social-friends-goto-user-timeline-at-point)
     )
-   ((eq identica-friends-buffer-type 'groups)
-    (identica-friends-goto-group-timeline-at-point)
+   ((eq gnu-social-friends-buffer-type 'groups)
+    (gnu-social-friends-goto-group-timeline-at-point)
     )
    )
   )
    
-(defun identica-friends-goto-user-timeline-at-point ()
+(defun gnu-social-friends-goto-user-timeline-at-point ()
   "Search for the username and go to his timeline."
   (interactive)
-  (let ((username (identica-friends-find-username))
+  (let ((username (gnu-social-friends-find-username))
 	)
-    (identica-user-timeline username)
-    (switch-to-buffer identica-buffer)
+    (gnu-social-user-timeline username)
+    (switch-to-buffer gnu-social-buffer)
     )	
   )
 
-(defun identica-friends-goto-group-timeline-at-point ()
+(defun gnu-social-friends-goto-group-timeline-at-point ()
   "Search for the group name and go to his timeline."
   (interactive)
-  ;; Look that `identica-friends-find-username' can be used for getting anything that starts with the "Nick: " string,
+  ;; Look that `gnu-social-friends-find-username' can be used for getting anything that starts with the "Nick: " string,
   ;; so is usefull here as well!
-  (let ((groupname (identica-friends-find-username))
+  (let ((groupname (gnu-social-friends-find-username))
 	)
-    (identica-group-timeline groupname)
-    (switch-to-buffer identica-buffer)
+    (gnu-social-group-timeline groupname)
+    (switch-to-buffer gnu-social-buffer)
     )	
   )
 					;
@@ -303,13 +303,13 @@ if not call `identica-friends-goto-group-timeline-at-point'."
 					;
 
 
-(defun identica-show-followers()
+(defun gnu-social-show-followers()
   (interactive)
-  (setq identica-friends-buffer-type 'users)
-  (identica-http-get (sn-account-server sn-current-account)
+  (setq gnu-social-friends-buffer-type 'users)
+  (gnu-social-http-get (sn-account-server sn-current-account)
 		     (sn-account-auth-mode sn-current-account)
-		     "statuses" "followers" nil 'identica-friends-show-user-sentinel '("follower"))    
-  (run-hooks 'identica-friends-show-followers-hooks)
+		     "statuses" "followers" nil 'gnu-social-friends-show-user-sentinel '("follower"))    
+  (run-hooks 'gnu-social-friends-show-followers-hooks)
   )
 
 
@@ -319,28 +319,28 @@ if not call `identica-friends-goto-group-timeline-at-point'."
                                         ;
 
 
-(defun identica-show-friends ()  
+(defun gnu-social-show-friends ()  
   (interactive)
-;  (setq identica-method-class "statuses")
-;  (setq identica-method "friends")
-;  (identica-http-get identica-method-class identica-method identica-show-friend-sentinel)
-  (setq identica-friends-buffer-type 'users)
-  (identica-http-get (sn-account-server sn-current-account) ;; server
+;  (setq gnu-social-method-class "statuses")
+;  (setq gnu-social-method "friends")
+;  (gnu-social-http-get gnu-social-method-class gnu-social-method gnu-social-show-friend-sentinel)
+  (setq gnu-social-friends-buffer-type 'users)
+  (gnu-social-http-get (sn-account-server sn-current-account) ;; server
 		     (sn-account-auth-mode sn-current-account);; auth-mode
-		     "statuses" "friends" nil 'identica-friends-show-user-sentinel '("friend"))
-  (run-hooks 'identica-friends-show-friends-hooks)
+		     "statuses" "friends" nil 'gnu-social-friends-show-user-sentinel '("friend"))
+  (run-hooks 'gnu-social-friends-show-friends-hooks)
   )
 
-(defun identica-show-groups ()  
+(defun gnu-social-show-groups ()  
   (interactive)
-;;  (setq identica-method-class "statuses")
-;;  (setq identica-method "friends")
-;;  (identica-http-get identica-method-class identica-method identica-show-friend-sentinel)
-  (setq identica-friends-buffer-type 'groups)
-  (identica-http-get (sn-account-server sn-current-account) ;; server
+;;  (setq gnu-social-method-class "statuses")
+;;  (setq gnu-social-method "friends")
+;;  (gnu-social-http-get gnu-social-method-class gnu-social-method gnu-social-show-friend-sentinel)
+  (setq gnu-social-friends-buffer-type 'groups)
+  (gnu-social-http-get (sn-account-server sn-current-account) ;; server
 		     (sn-account-auth-mode sn-current-account);; auth-mode
-		     "statusnet" "groups/list" nil 'identica-friends-show-user-sentinel '("group"))
-  ;;(run-hooks 'identica-friends-show-groups-hooks)
+		     "statusnet" "groups/list" nil 'gnu-social-friends-show-user-sentinel '("group"))
+  ;;(run-hooks 'gnu-social-friends-show-groups-hooks)
   )
 
 
@@ -350,7 +350,7 @@ if not call `identica-friends-goto-group-timeline-at-point'."
 					; ____________________
 
 
-(defun identica-friends-find-username ()
+(defun gnu-social-friends-find-username ()
   "Find the username in the nearby at current position.
 
 I suppose that the cursor is on the nickname and not anywhere."
@@ -362,16 +362,16 @@ I suppose that the cursor is on the nickname and not anywhere."
     )
   )
 
-(defun identica-friends-buffer ()
+(defun gnu-social-friends-buffer ()
   "Show a new buffer with all the friends. "
-  (setq identica-friends-buffer (get-buffer-create identica-friends-buffer-name))
-  (switch-to-buffer identica-friends-buffer)
-  (identica-friends-mode)
+  (setq gnu-social-friends-buffer (get-buffer-create gnu-social-friends-buffer-name))
+  (switch-to-buffer gnu-social-friends-buffer)
+  (gnu-social-friends-mode)
   )
 
 
-(defun identica-friends-get-current-user ()
-  "Return the current user(friend or follower) that we are pointing now in the *identica-buffer*.
+(defun gnu-social-friends-get-current-user ()
+  "Return the current user(friend or follower) that we are pointing now in the *gnu-social-buffer*.
 This will be returned as a list wich components are in these order:
  (NICK NAME DESCRIPTION LOCATION)"
 
@@ -381,19 +381,19 @@ This will be returned as a list wich components are in these order:
     (search-backward-regexp "^--------------------$" nil t)
     (goto-char (match-beginning 0))
 
-    (setq usr (cons (identica-friends-get-location) usr))
-    (setq usr (cons (identica-friends-get-desc) usr))
+    (setq usr (cons (gnu-social-friends-get-location) usr))
+    (setq usr (cons (gnu-social-friends-get-desc) usr))
 
-    (setq usr (cons (identica-friends-get-name) usr))
-    (setq usr (cons (identica-friends-get-nick) usr))
+    (setq usr (cons (gnu-social-friends-get-name) usr))
+    (setq usr (cons (gnu-social-friends-get-nick) usr))
     )
   usr
   )
 
-(defun identica-friends-get-nick ()
+(defun gnu-social-friends-get-nick ()
   "Get the *next* user(friend or follower) nick.
 If there are no user, return nil."
-  (with-current-buffer identica-friends-buffer
+  (with-current-buffer gnu-social-friends-buffer
     (save-excursion
       (search-forward-regexp "Nick: \\(.*\\)$" nil t)
       (match-string-no-properties 1)
@@ -401,10 +401,10 @@ If there are no user, return nil."
     )
   )
 
-(defun identica-friends-get-name ()
+(defun gnu-social-friends-get-name ()
   "Get the *next* user(friend or follower) nick.
 If there are no user, return nil."
-  (with-current-buffer identica-friends-buffer
+  (with-current-buffer gnu-social-friends-buffer
     (save-excursion
       (search-forward-regexp "Name: \\(.*\\)$" nil t)
       (match-string-no-properties 1)
@@ -412,10 +412,10 @@ If there are no user, return nil."
     )
   )
 
-(defun identica-friends-get-desc ()
+(defun gnu-social-friends-get-desc ()
   "Get the current user(friend or follower) nick.
 If there are no user, return nil."
-  (with-current-buffer identica-friends-buffer
+  (with-current-buffer gnu-social-friends-buffer
     (save-excursion
       (search-forward-regexp "Description: \\(.*\\)$" nil t)
       (match-string-no-properties 1)
@@ -423,10 +423,10 @@ If there are no user, return nil."
     )
   )
 
-(defun identica-friends-get-location ()
+(defun gnu-social-friends-get-location ()
   "Get the current user(friend or follower) nick.
 If there are no user, return nil."
-  (with-current-buffer identica-friends-buffer
+  (with-current-buffer gnu-social-friends-buffer
     (save-excursion
       (search-forward-regexp "Location: \\(.*\\)$" nil t)
       (match-string-no-properties 1)
@@ -434,19 +434,19 @@ If there are no user, return nil."
     )
   )
 
-(defun identica-friends-show-user-sentinel
+(defun gnu-social-friends-show-user-sentinel
   (&optional status method-class method parameters type-of-user)
-  "Sentinel executed after recieving all the information from identi.ca.
+  "Sentinel executed after recieving all the information from GNU Social.
 This sentinel needs to know if the TYPE-OF-USER(or type of list) is one of these:
 - \"friend\"
 - \"follower\"
 - \"group\"
 
-First, its parse the XML file recieved by identi.ca. While parsing, it show the user data into a buffer.
+First, its parse the XML file recieved by GNU Social. While parsing, it show the user data into a buffer.
 
 "
   ;; cnngimenez: This I used for debug HTTP
-  (identica-friends-copiar-http-buffer)
+  (gnu-social-friends-copiar-http-buffer)
   ;; Search for the begining of the xml...
   (goto-char (point-min))
   (search-forward "<?xml")
@@ -454,16 +454,16 @@ First, its parse the XML file recieved by identi.ca. While parsing, it show the 
   ;; Parse xml into a list
   (setq lst-xml (xml-parse-region start-xml (point-max)))
   ;; Change buffer...
-  (identica-friends-buffer)
+  (gnu-social-friends-buffer)
   ;; Find elements on that list and write it
-  (identica-friends-parse-xml-user-lists type-of-user lst-xml)
+  (gnu-social-friends-parse-xml-user-lists type-of-user lst-xml)
   
   (goto-char (point-min))
   )
 
 
 
-(defun identica-friends-parse-xml-user-lists (type-of-user xml-lst)
+(defun gnu-social-friends-parse-xml-user-lists (type-of-user xml-lst)
   "Parse the xml-lst list and, after that, write every user into the current buffer.
 The way it is parsed depends on the type-of-user we are talking about:
 - \"friend\"
@@ -475,7 +475,7 @@ The way it is parsed depends on the type-of-user we are talking about:
   ;; ignore the word 'users' and the next element... remove enter.
   (setq xml-lst (nthcdr 3 xml-lst))
   ;; Erase friends-buffer
-  (with-current-buffer identica-friends-buffer-name
+  (with-current-buffer gnu-social-friends-buffer-name
     (let ((inhibit-read-only t))
       (delete-region (point-min) (point-max))
       )
@@ -484,14 +484,14 @@ The way it is parsed depends on the type-of-user we are talking about:
   (dolist (usr xml-lst)
     (unless (stringp usr)
        (cond ((string= type-of-user "friend")
-	      (identica-friends-write-user
-	       (identica-friends-get-friend-data usr))) ;; Is a friend, parse xml as a friends.xml
+	      (gnu-social-friends-write-user
+	       (gnu-social-friends-get-friend-data usr))) ;; Is a friend, parse xml as a friends.xml
 	     ((string= type-of-user "follower")
-	      (identica-friends-write-user
-	       (identica-friends-get-follower-data usr)));; is a follower, parse as followers.xml
+	      (gnu-social-friends-write-user
+	       (gnu-social-friends-get-follower-data usr)));; is a follower, parse as followers.xml
 	     ((string= type-of-user "group")
-	      (identica-friends-write-group
-	       (identica-friends-get-group-data usr)))
+	      (gnu-social-friends-write-group
+	       (gnu-social-friends-get-group-data usr)))
 	     )
        )
     )
@@ -499,10 +499,10 @@ The way it is parsed depends on the type-of-user we are talking about:
 
 
 
-(defun identica-friends-write-user (usr-data)
+(defun gnu-social-friends-write-user (usr-data)
   "Write an user taking the info from a list.
-The list must be of the form given by the functions `identica-friends-get-friend-data'
-or `identica-friends-get-follower-data':
+The list must be of the form given by the functions `gnu-social-friends-get-friend-data'
+or `gnu-social-friends-get-follower-data':
 
  (id . name . screen_name . location . description )
 
@@ -516,9 +516,9 @@ or `identica-friends-get-follower-data':
     )
   )
 
-(defun identica-friends-write-group (group-data)
+(defun gnu-social-friends-write-group (group-data)
   "Write a group taking the info from a list.
-The list must be of the form given by the functions `identica-friends-get-group-data':
+The list must be of the form given by the functions `gnu-social-friends-get-group-data':
 
  (id url nickname fullname membership blocked member_count logo homepage description location modified)"
   (let ((inhibit-read-only t))
@@ -533,7 +533,7 @@ The list must be of the form given by the functions `identica-friends-get-group-
   )
 
 ;; *****
-;; ** Comment about `identica-friends-get-follower-data' and `identica-friends-get-friend-data':
+;; ** Comment about `gnu-social-friends-get-follower-data' and `gnu-social-friends-get-friend-data':
 ;;
 ;;   These parsers must be changed to a most suitable way of finding the members.
 ;;   Maybe using the "member" function or any simmilar makes a more reliable way of finding the attributes
@@ -545,9 +545,9 @@ The list must be of the form given by the functions `identica-friends-get-group-
 ;;
 ;; *****
 
-(defun identica-friends-get-follower-data (usr-lst)
+(defun gnu-social-friends-get-follower-data (usr-lst)
   "Parse the list and make a more easy-to-read list. The final list will have the following form suitable
-for writing in a buffer with the function `identica-friends-write-user'.
+for writing in a buffer with the function `gnu-social-friends-write-user'.
   (id . name . screen_name . location . description )."
 
   (setq lst '())
@@ -585,11 +585,11 @@ for writing in a buffer with the function `identica-friends-write-user'.
   )
 
 
-(defun identica-friends-get-friend-data (usr-lst)
+(defun gnu-social-friends-get-friend-data (usr-lst)
   "Parse the list and make a list more easy to read. The list has the following form:
   (id . name . screen_name . location . description ).
 
-This form is suitable for the function `identica-friends-write-user'.
+This form is suitable for the function `gnu-social-friends-write-user'.
 "
 
   (setq lst '())
@@ -630,9 +630,9 @@ This form is suitable for the function `identica-friends-write-user'.
   (replace-nils lst "")
   )
 
-(defun identica-friends-get-group-data (usr-lst)
+(defun gnu-social-friends-get-group-data (usr-lst)
   "Parse the list and make a more easy-to-read list. The final list will have the following form suitable
-for writing in a buffer with the function `identica-friends-write-user'.
+for writing in a buffer with the function `gnu-social-friends-write-user'.
 
  (id url nickname fullname membership blocked member_count logo homepage description location modified)."
 
@@ -707,11 +707,11 @@ for writing in a buffer with the function `identica-friends-write-user'.
   )
 
 
-(defun identica-friends-find-next-user-position ()
-  "Find the position in the *identica-friend-buffer* of the next user. If there are no next user(we are at the end of the list)
+(defun gnu-social-friends-find-next-user-position ()
+  "Find the position in the *gnu-social-friend-buffer* of the next user. If there are no next user(we are at the end of the list)
 return the first one.
 This function return nil when there are any friend in the buffer."
-  (with-current-buffer identica-friends-buffer
+  (with-current-buffer gnu-social-friends-buffer
     ;; We have to put one char forward so, we cannot detect the actual "Nick: "
     (forward-char 1)
     (if (search-forward-regexp "Nick: " nil t)
@@ -728,11 +728,11 @@ This function return nil when there are any friend in the buffer."
       )
     )
   )
-(defun identica-friends-find-prev-user-position ()
-  "Find the position in the *identica-friend-buffer* of the previous user. If there are no previous user(we are at the begin of the list)
+(defun gnu-social-friends-find-prev-user-position ()
+  "Find the position in the *gnu-social-friend-buffer* of the previous user. If there are no previous user(we are at the begin of the list)
 return the last one.
 This function return nil when there are any friend in the buffer."
-  (with-current-buffer identica-friends-buffer
+  (with-current-buffer gnu-social-friends-buffer
     (if (search-backward-regexp "Nick: " nil t)
 	(match-beginning 0)
       (progn
@@ -773,21 +773,21 @@ This function return nil when there are any friend in the buffer."
 
 
 
-(defvar identica-friends-http-debug "*identica-http*"
+(defvar gnu-social-friends-http-debug "*gnu-social-http*"
   "Buffer to the http requests")
 
-(defun identica-friends-copiar-http-buffer ()
+(defun gnu-social-friends-copiar-http-buffer ()
   "Copia el buffer http a otro nuevo para ver el resultado de la comunicación."
-  (with-current-buffer identica-http-buffer
+  (with-current-buffer gnu-social-http-buffer
     (setq str (buffer-string))
     )
-  (with-current-buffer (get-buffer-create identica-friends-http-debug)
+  (with-current-buffer (get-buffer-create gnu-social-friends-http-debug)
     (delete-region (point-min) (point-max))
     (insert str)
     )
   )
 
 
-(provide 'identica-friends)
+(provide 'gnu-social-friends)
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;; friends.el ends here
+;;; gnu-social-friends.el ends here
