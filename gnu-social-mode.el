@@ -22,7 +22,7 @@
 ;; Author: Gabriel Saldana <gsaldana@gmail.com>
 ;;         and Sergio Durigan Junior <sergiodj (at) sergiodj (dot) net>
 ;; Keywords: gnu-social web
-;; URL: http://blog.gabrielsaldana.org/gnu-social-mode-for-emacs/
+;; URL: http://blog.gabrielsaldana.org/identica-mode-for-emacs/
 ;; Contributors:
 ;;     Jason McBrayer <jmcbray@carcosa.net> (minor updates for working under Emacs 23)
 ;;     Alex Schröder <kensanata@gmail.com> (mode map patches)
@@ -39,6 +39,7 @@
 ;;     Aidan Gauland <aidalgol@no8wireless.co.nz> (variable scope code cleanup)
 ;;     Joel J. Adamson <adamsonj@email.unc.edu> Added countdown minibuffer-prompt style
 ;;     Kevin Granade <kevin.granade@gmail.com> (OAuth support)
+;;     Albino Biasutti Neto <bino@riseup.net> (fixes)
 
 ;;; Commentary:
 
